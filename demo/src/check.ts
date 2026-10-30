@@ -5,7 +5,7 @@
 /**
  * Whether an answer may be shown, decided here and nowhere else.
  *
- * Ported from howards-lantern-rag-pipeline/worker/src/learner-ask.ts
+ * Ported from Howard's Lantern's worker/src/learner-ask.ts
  * (`numbersIn`, `figuresIn`, `compounds`, `checkLawAnswer`), English only: every
  * id the answer cites must be a chunk it was given, and every figure it states
  * must be in a chunk it cites (or in the question).
