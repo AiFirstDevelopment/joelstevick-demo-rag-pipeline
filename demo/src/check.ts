@@ -46,22 +46,28 @@ export const MAX_ITEMS = 12
  */
 export const MAX_ITEM_SENTENCES = 2
 
+/** The numbers spelled as one word up to twelve, indexed by value: NUMBER_WORDS[5] is 'five'. */
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
 
+/** The larger spelled numbers, each a figure on its own: "thirty" states 30 even outside a compound. */
 const LARGER_WORDS: Record<string, number> = {
   thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19,
   twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
   hundred: 100, thousand: 1000,
 }
+/** One to nineteen: the words a compound adds as they are ("twenty-five" is 20 + 5). */
 const UNITS: Record<string, number> = Object.fromEntries(
   [...NUMBER_WORDS.slice(1), 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']
     .map((word, index) => [word, index + 1]),
 )
+/** The tens a compound adds before its unit. */
 const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 }
 
 /** Spelled compounds as the numbers they are: "five hundred" is 500, "twenty-five" 25. */
 function compounds(text: string): number[] {
   const out: number[] = []
+  // total: what the run reached at its last "thousand"; chunk: the part since then, still open to "hundred";
+  // open: whether a run of number words is under way.
   let total = 0
   let chunk = 0
   let open = false
@@ -83,8 +89,10 @@ function compounds(text: string): number[] {
       close()
       continue
     }
+    // Reached only by a number word: the run is under way.
     open = true
   }
+  // The text may end on a number word, so the last run is emitted too.
   close()
   return out
 }
@@ -97,14 +105,18 @@ function compounds(text: string): number[] {
 export function figuresIn(text: string): Set<string> {
   // Thousands separators out ("4,200" is 4200) and a leading zero off ("0.5" is .5), so one figure is one token however it was written.
   const normalised = text.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').replace(/\b0(\.\d)/g, '$1')
+  // Every run of digits is a figure, as written.
   const found = new Set<string>(normalised.match(/\d+/g) ?? [])
+  // Spelled numbers up to twelve, as whole words, except "one" (see above).
   const lower = normalised.toLowerCase()
   NUMBER_WORDS.forEach((word, value) => {
     if (value !== 1 && new RegExp(`\\b${word}\\b`).test(lower)) found.add(String(value))
   })
+  // The larger spelled numbers, each counted on its own.
   for (const word of lower.match(/[a-z]+/g) ?? []) {
     if (LARGER_WORDS[word] !== undefined) found.add(String(LARGER_WORDS[word]))
   }
+  // Spelled compounds as their value ("five hundred" adds 500); one that comes to 1 is the pronoun again, so skipped.
   for (const value of compounds(normalised)) if (value !== 1) found.add(String(value))
   return found
 }
@@ -115,6 +127,8 @@ export function figuresIn(text: string): Set<string> {
  * sentence ("The fee was 5.") follows a word, and still ends it.
  */
 export function sentences(text: string): number {
+  // Split at the whitespace after ".", "!" or "?", except after a list number of up to three digits that starts the
+  // text or follows ":", ";", "," or a line break; empty parts are not counted.
   return text.split(/(?<=[.!?])(?<!(?:^|[:;,]\s*|\n)\d{1,3}\.)\s+(?=\S)/).filter((part) => part.trim().length > 0).length
 }
 
@@ -134,6 +148,10 @@ export type Checked =
   | { ok: true; answer: string; items: string[]; cited: Chunk[] }
   | { ok: false; reason: 'empty' | 'uncited' | 'ungrounded' | 'overlong' }
 
+/**
+ * Checks the model's reply against the passages it was given and the question, in this order: something was
+ * said, every source is a given chunk, every figure is grounded, and the length is within bounds.
+ */
 export function checkAnswer(reply: Reply, given: Chunk[], question: string): Checked {
   const answer = reply.answer.trim()
   // A list's entries, trimmed; an empty entry is dropped rather than shown as an empty bullet.
@@ -145,8 +163,10 @@ export function checkAnswer(reply: Reply, given: Chunk[], question: string): Che
   // No answer (neither prose nor a list), or one citing nothing: the model's own "no passage
   // answers it", shown as the fallback.
   if ((answer.length === 0 && items.length === 0) || ids.length === 0) return { ok: false, reason: 'empty' }
+  // Each id matched to its given chunk, or null when no given chunk has that id.
   const cited = ids.map((id) => given.find((chunk) => chunk.id === id) ?? null)
   if (cited.some((chunk) => chunk === null)) return { ok: false, reason: 'uncited' }
+  // No null is left past the check above: these are the cited chunks, in the order they were cited.
   const sources = cited as Chunk[]
   // Figures, by contrast, are compared as text on purpose: a number in the answer must appear,
   // written the same way, in a cited passage or in the question. Every list item is checked the
@@ -154,6 +174,7 @@ export function checkAnswer(reply: Reply, given: Chunk[], question: string): Che
   const grounded = new Set<string>()
   for (const chunk of sources) for (const figure of figuresIn(chunk.text)) grounded.add(figure)
   for (const figure of figuresIn(question)) grounded.add(figure)
+  // The first figure stated by no cited passage and not by the question refuses the whole answer.
   for (const text of [answer, ...items]) {
     for (const figure of figuresIn(text)) if (!grounded.has(figure)) return { ok: false, reason: 'ungrounded' }
   }
