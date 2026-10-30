@@ -174,6 +174,8 @@
     }
     $("signed-in").hidden = false;
     body.files.forEach(listFile);
+    // Every earlier answer, newest first, collapsed to its question (see render).
+    (body.history ?? []).forEach((asked) => render(asked.question, asked, true));
     $("cleared").hidden = !body.cleared;
     left = body.left;
     showLeft();
@@ -221,10 +223,14 @@
     input.value = "";
   });
 
-  function render(question, body) {
-    const box = document.createElement("div");
-    box.className = "answer";
-    const q = document.createElement("p");
+  // Draws one answer. A new answer (from Ask) goes on top and is shown open. An earlier answer
+  // (from the session's history, when the page loads) is drawn collapsed to its question, in a
+  // <details> the visitor opens with a click, so a reload keeps every answer without filling the
+  // screen; earlier answers come newest first and are appended in that order, below any new ones.
+  function render(question, body, earlier = false) {
+    const box = document.createElement(earlier ? "details" : "div");
+    box.className = earlier ? "answer earlier" : "answer";
+    const q = document.createElement(earlier ? "summary" : "p");
     q.className = "q";
     q.textContent = question;
     // The answer: prose, or a list. A list (body.items) is drawn as bullets under its lead-in, so
@@ -289,7 +295,8 @@
       }
       box.append(list);
     }
-    $("answers").prepend(box);
+    if (earlier) $("answers").append(box);
+    else $("answers").prepend(box);
   }
 
   $("ask").addEventListener("submit", async (event) => {
