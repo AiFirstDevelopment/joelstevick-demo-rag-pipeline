@@ -131,14 +131,56 @@ async function openDemo(request: Request, env: Env): Promise<Response> {
   return json(200, { key, id: demo.id })
 }
 
+/**
+ * How many earlier answers the page is given back when it loads (`history` in the session).
+ * Ten is the demo's whole allowance of questions; the cap only matters for a demo whose count
+ * was reset, and keeps the page from drawing an unbounded list.
+ */
+export const HISTORY = 20
+
+/** One earlier answer as the page draws it: the same shape as the body of a successful ask. */
+export interface Asked {
+  question: string
+  answer: string
+  /** Present only for a list answer, as in an ask's body. */
+  items?: string[]
+  sources: unknown[]
+}
+
+/**
+ * A recorded answer read back into the shape the page draws, the reverse of `asText`: the lines
+ * that start with "- " are the list's items, the other lines its lead-in (or the whole prose).
+ * A prose answer is one paragraph with no such lines, so it comes back as it was shown.
+ */
+export function fromText(text: string): { answer: string; items?: string[] } {
+  const lines = text.split('\n')
+  const items = lines.filter((line) => line.startsWith('- ')).map((line) => line.slice(2))
+  const answer = lines.filter((line) => !line.startsWith('- ')).join('\n').trim()
+  return items.length > 0 ? { answer, items } : { answer }
+}
+
+/**
+ * The page's state when it loads: the files, the questions left, and the earlier answers.
+ *
+ * `history` is every question this demo was shown an answer to, newest first, read from the
+ * `questions` table the ask records into (ASK 8). Only answers that passed the check
+ * (`checked = 1`) are given back: a refused or failed question showed the visitor only the
+ * fallback line, so there is no answer to show again. The sources are the ones recorded with the
+ * answer, passages included, so "Show the passage" works on an earlier answer as it did when it
+ * was asked, even after the documents' index was deleted for idleness.
+ */
 async function session(demo: Demo, env: Env): Promise<Response> {
   const files = await env.DB.prepare('SELECT name, pages, skipped FROM files WHERE demo_id = ? ORDER BY rowid')
     .bind(demo.id).all<{ name: string; pages: number; skipped: string }>()
+  const asked = await env.DB.prepare('SELECT question, answer, sources FROM questions WHERE demo_id = ? AND checked = 1 AND answer IS NOT NULL ORDER BY asked_at DESC, rowid DESC LIMIT ?')
+    .bind(demo.id, HISTORY).all<{ question: string; answer: string; sources: string }>()
+  const history: Asked[] = asked.results.map((row) => ({ question: row.question, ...fromText(row.answer), sources: JSON.parse(row.sources) as unknown[] }))
   return json(200, {
     files: files.results.map((file) => ({ name: file.name, pages: file.pages, skipped: JSON.parse(file.skipped) as number[] })),
     left: LIMITS.asks - demo.asks_used,
     limits: LIMITS,
     cleared: demo.cleared_at !== null,
+    history,
   })
 }
 
