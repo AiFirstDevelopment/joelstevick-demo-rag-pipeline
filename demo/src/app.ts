@@ -377,7 +377,7 @@ async function ask(request: Request, env: Env, models: Models, demo: Demo, optio
   // When every chunk is already given there is nothing to widen into.
   const given = whole || options.widen === false ? chosen : widen(chosen, all)
   // ASK 6 · answer (Claude writes it from the given passages only)
-  let reply: { answer: string; sources: string[] }
+  let reply: { answer: string; items: string[]; sources: string[] }
   try {
     reply = await answer(models.claude, question, given)
   } catch (error) {
@@ -388,14 +388,27 @@ async function ask(request: Request, env: Env, models: Models, demo: Demo, optio
   }
   // ASK 7 · check the citations in code; refuse the answer if they don't hold
   const checked = checkAnswer(reply, given, question)
-  // A refused answer goes out as the fallback, and is recorded with the model's words and the reason, for the evals and /admin.
-  if (!checked.ok) return recorded(200, { answer: missing, sources: [], found: false, left, refused: checked.reason }, { answer: reply.answer, fallback: 'refused' })
+  // A refused answer goes out as the fallback, and is recorded with the model's words (its list
+  // included) and the reason, for the evals and /admin.
+  if (!checked.ok) return recorded(200, { answer: missing, sources: [], found: false, left, refused: checked.reason }, { answer: asText(reply.answer, reply.items), fallback: 'refused' })
   // ASK 8 · return the answer with its sources
   // The passage is the stored text it was given, read by its id: never the model's words.
   const sources = checked.cited.map((chunk) => ({
     id: chunk.id, file: chunk.file, page: chunk.page, ...(chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? { last_page: chunk.lastPage } : {}), passage: chunk.text,
   }))
-  return recorded(200, { answer: checked.answer, sources, found: true, left }, { answer: checked.answer, sources, checked: true, fallback: null })
+  // `items` goes to the page only when the answer is a list, so a prose answer's body is as before.
+  // The recorded answer is one text either way (`asText`), since /admin and the golden-set
+  // export read the `questions.answer` column as text.
+  const shown = checked.items.length > 0 ? { answer: checked.answer, items: checked.items } : { answer: checked.answer }
+  return recorded(200, { ...shown, sources, found: true, left }, { answer: asText(checked.answer, checked.items), sources, checked: true, fallback: null })
+}
+
+/**
+ * An answer as one text, for the `questions` table: the prose, or the list's lead-in followed by
+ * one "- " line per item, as a reader of /admin or of a golden-set export would write it.
+ */
+export function asText(answer: string, items: string[]): string {
+  return [answer.trim(), ...items.map((item) => `- ${item.trim()}`)].filter((line) => line.length > 0).join('\n')
 }
 
 /**

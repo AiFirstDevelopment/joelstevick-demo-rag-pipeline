@@ -19,53 +19,32 @@ import type { Chunk } from './retrieval'
 export const MAX_SENTENCES = 4
 
 /**
- * The longest answer to a question that asks for a sentence per item ("what jobs have I held,
- * one sentence each"), in sentences.
+ * The most items a list answer may have.
  *
- * Why it exists: a visitor asked exactly that of a two-page résumé, and the model wrote a
- * correct, fully cited answer of seven sentences, one per job. The four-sentence cap refused it
- * as `overlong`, and the visitor was told the answer could not be found. The model had done
- * what was asked; the check had not allowed for the asking.
+ * Why lists exist: a visitor asked "what jobs have i held - 1 sentence each" of a two-page
+ * résumé. The answer was right, but it came back as one long run-on sentence with the seven jobs
+ * separated by semicolons, because a prose answer is held to MAX_SENTENCES and the page showed
+ * it as a single paragraph. An answer that names several things of one kind (every job, every
+ * fee, every chapter) now comes back as a list instead: a short lead-in in `answer` and one
+ * entry per thing in `items`, which the page draws as bullets.
  *
  * Why 12: it matches ANSWER_CHUNKS (12, models.ts), the number of passages the reranker chooses,
- * and it is room for a two-page résumé's jobs or a document's chapters with space to spare. A
- * passage can hold several items (one résumé page holds several jobs), so it is a judgement, not
- * a count of passages. It is a ceiling, not a target: an answer that runs past it is still
- * refused, so a runaway reply is never shown.
- * (The constant is repeated here rather than imported from models.ts so that this file, the one
+ * and it is room for a two-page résumé's jobs or a document's chapters with space to spare. It
+ * is a ceiling, not a target: a list longer than this is refused, not cut, so a runaway reply is
+ * never shown and a list is never silently shortened by the check.
+ * (The number is repeated here rather than imported from models.ts so that this file, the one
  * that decides what may be shown, depends on nothing but the chunk type.)
  */
-export const MAX_LIST_SENTENCES = 12
+export const MAX_ITEMS = 12
 
 /**
- * Whether the question asks for one sentence (or one line) for each of several things, so its
- * answer may run past MAX_SENTENCES.
+ * The most sentences a list's lead-in, or any one of its items, may have.
  *
- * It is matched on the visitor's own wording, not on the answer, so the model cannot grant
- * itself a longer answer. It needs a count of one, a length word, and then a word that spreads
- * it over the items:
- *
- *   - "1 sentence each", "one line apiece", "a single sentence each";
- *   - "one sentence per job", "a line for each employer", "one sentence for every role".
- *
- * Why so strict: "each" on its own is common in ordinary questions ("How much does each plan
- * cost?", "Does each party sign?"), and those must keep the four-sentence cap the page promises.
- * The count word keeps phrases such as "the bottom line per quarter" from matching too. A
- * per-item request worded another way ("describe every job in a sentence") does not match; its
- * long answer is then refused, never wrongly shown, which is the safe way to miss.
- *
- * A question that only asks for a list ("list the jobs I have held") does not match either: the
- * answer rules have the model name every item in one sentence separated by semicolons, which
- * fits the ordinary cap.
+ * An item is meant to be one sentence or a phrase ("Team Lead, Zonar Systems, 2021 to 2026").
+ * Two leaves room for a short second sentence the model adds for clarity, without letting one
+ * item grow into a paragraph that hides the list's shape. The lead-in gets the same allowance.
  */
-export function asksForEach(question: string): boolean {
-  return /\b(1|one|a|single)\s+(single\s+|short\s+)?(sentence|line)\s+(each|apiece|per\s+[a-z]|for\s+(each|every)\b)/i.test(question)
-}
-
-/** The sentence cap for this question: MAX_LIST_SENTENCES when it asks for one per item, MAX_SENTENCES otherwise. */
-export function sentenceLimit(question: string): number {
-  return asksForEach(question) ? MAX_LIST_SENTENCES : MAX_SENTENCES
-}
+export const MAX_ITEM_SENTENCES = 2
 
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
 
@@ -139,35 +118,58 @@ export function sentences(text: string): number {
   return text.split(/(?<=[.!?])(?<!(?:^|[:;,]\s*|\n)\d{1,3}\.)\s+(?=\S)/).filter((part) => part.trim().length > 0).length
 }
 
+/** The answer model's reply, unchecked: prose in `answer`, or a lead-in in `answer` and a list in `items`. */
 export interface Reply {
   answer: string
+  /** One entry per thing the answer names, when it is a list; empty or absent for prose. */
+  items?: string[]
   sources: string[]
 }
 
-export type Checked = { ok: true; answer: string; cited: Chunk[] } | { ok: false; reason: 'empty' | 'uncited' | 'ungrounded' | 'overlong' }
+/**
+ * The verdict. When `ok`, `answer` and `items` are what the page shows, trimmed, and `cited`
+ * holds the given chunks the answer cites, in the order it cited them.
+ */
+export type Checked =
+  | { ok: true; answer: string; items: string[]; cited: Chunk[] }
+  | { ok: false; reason: 'empty' | 'uncited' | 'ungrounded' | 'overlong' }
 
 export function checkAnswer(reply: Reply, given: Chunk[], question: string): Checked {
   const answer = reply.answer.trim()
+  // A list's entries, trimmed; an empty entry is dropped rather than shown as an empty bullet.
+  const items = (reply.items ?? []).map((item) => item.trim()).filter((item) => item.length > 0)
   // `reply.sources` are chunk ids, copied by the model from the `[id]` label each given passage
   // carried. Each is matched to a given chunk by id, exactly; one that matches none (misspelt,
   // invented, or from outside the context) fails the whole answer as `uncited`.
   const ids = [...new Set(reply.sources)]
-  // No answer, or one citing nothing: the model's own "no passage answers it", shown as the fallback.
-  if (answer.length === 0 || ids.length === 0) return { ok: false, reason: 'empty' }
+  // No answer (neither prose nor a list), or one citing nothing: the model's own "no passage
+  // answers it", shown as the fallback.
+  if ((answer.length === 0 && items.length === 0) || ids.length === 0) return { ok: false, reason: 'empty' }
   const cited = ids.map((id) => given.find((chunk) => chunk.id === id) ?? null)
   if (cited.some((chunk) => chunk === null)) return { ok: false, reason: 'uncited' }
   const sources = cited as Chunk[]
   // Figures, by contrast, are compared as text on purpose: a number in the answer must appear,
-  // written the same way, in a cited passage or in the question.
+  // written the same way, in a cited passage or in the question. Every list item is checked the
+  // same way as the lead-in: a figure that appears only in a bullet is still a figure shown.
   const grounded = new Set<string>()
   for (const chunk of sources) for (const figure of figuresIn(chunk.text)) grounded.add(figure)
   for (const figure of figuresIn(question)) grounded.add(figure)
-  for (const figure of figuresIn(answer)) if (!grounded.has(figure)) return { ok: false, reason: 'ungrounded' }
-  // Length. The page promises two to four sentences, so an ordinary answer longer than that is
-  // refused, not trimmed: a trimmed answer could drop the sentence a citation was for. A question
-  // that asks for a sentence per item ("one sentence each") is allowed one per item, up to
-  // MAX_LIST_SENTENCES; past that it is refused the same way. `sentenceLimit` reads the
-  // question, never the answer, so the model cannot lengthen its own allowance.
-  if (sentences(answer) > sentenceLimit(question)) return { ok: false, reason: 'overlong' }
-  return { ok: true, answer, cited: sources }
+  for (const text of [answer, ...items]) {
+    for (const figure of figuresIn(text)) if (!grounded.has(figure)) return { ok: false, reason: 'ungrounded' }
+  }
+  // Length, refused rather than trimmed: a trimmed answer could drop the sentence or the item a
+  // citation was for.
+  if (items.length === 0) {
+    // Prose: the page promises two to four sentences.
+    if (sentences(answer) > MAX_SENTENCES) return { ok: false, reason: 'overlong' }
+  } else {
+    // A list: at most MAX_ITEMS entries, and the lead-in and each entry short. The allowance
+    // comes from the shape of the reply, not from the question's wording. A list can be longer in
+    // all than prose may be (a two-sentence lead-in and twelve two-sentence items is 26
+    // sentences); what is bounded is each piece, so no single bullet becomes a paragraph and the
+    // whole stays a list a reader can scan, never a long answer in one block.
+    if (items.length > MAX_ITEMS) return { ok: false, reason: 'overlong' }
+    if ([answer, ...items].some((text) => sentences(text) > MAX_ITEM_SENTENCES)) return { ok: false, reason: 'overlong' }
+  }
+  return { ok: true, answer, items, cited: sources }
 }
