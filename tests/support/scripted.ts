@@ -19,7 +19,10 @@
  * A question about jobs or a role is answered from the "<role> at <employer>,
  * <year> to <year>" entries in the passages it was given, and from nothing
  * else: every entry for "what jobs", the one whose employer the question names
- * otherwise, and no answer when none matches.
+ * otherwise, and no answer when none matches. "What jobs" is answered in one
+ * sentence, the jobs separated by semicolons, as the answer rules ask; when the
+ * question asks for a sentence each ("one sentence each"), it is answered with
+ * one sentence per job instead, as the real model did for a visitor.
  *
  * Otherwise the answer is the first sentence of the first chunk it was given,
  * citing that chunk. The reranker keeps the pool's order and honours the
@@ -40,6 +43,13 @@ function jobs(question: string, passages: string): { answer: string; sources: st
     return { answer: `He was ${e.role} at ${e.employer} from ${e.from} to ${e.to}.`, sources: [e.id] }
   }
   if (!/\bjobs\b/i.test(question) || entries.length === 0) return { answer: '', sources: [] }
+  // "One sentence each": a sentence per job, so the answer runs past the ordinary four-sentence cap.
+  if (/\beach\b/i.test(question)) {
+    return {
+      answer: entries.map((e) => `He was ${e.role} at ${e.employer} from ${e.from} to ${e.to}.`).join(' '),
+      sources: [...new Set(entries.map((e) => e.id))],
+    }
+  }
   return {
     answer: `He has held these jobs: ${entries.map((e) => `${e.role} at ${e.employer}`).join('; ')}.`,
     sources: [...new Set(entries.map((e) => e.id))],
