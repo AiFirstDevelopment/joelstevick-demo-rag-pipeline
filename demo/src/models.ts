@@ -120,7 +120,7 @@ Return an empty list if none answers it.`
 
 /**
  * The chunks the answer is written from: Claude Haiku's choice from the pool
- * first, as in howards-lantern-rag-pipeline/worker/src/law-rerank.ts
+ * first, as in Howard's Lantern's worker/src/law-rerank.ts
  * (`haikuRerankFor`, `chooseLaws`), then the rest of the pool by fusion, up to
  * ANSWER_CHUNKS. The reranker orders the context; it does not cut it, because a
  * passage it passed over may still hold part of the answer. Failing or naming a

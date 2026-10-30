@@ -6,7 +6,7 @@
  * Which chunks a question is answered from: BM25 over the demo's own chunks,
  * fused by reciprocal rank with the vector index's nearest.
  *
- * Ported from howards-lantern-rag-pipeline/worker/src/law-retrieval.ts
+ * Ported from Howard's Lantern's worker/src/law-retrieval.ts
  * (`words`, `bm25`, `retrieve`): the same tokens, the same BM25 constants and
  * the same RRF k. The law-specific steps (scope, rephrase, widen, nationwide,
  * spelling repair) are left out.

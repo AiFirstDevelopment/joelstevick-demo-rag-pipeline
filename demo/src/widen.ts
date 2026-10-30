@@ -6,7 +6,7 @@
  * The passages the answer is written from: each chunk the reranker chose,
  * joined with the chunk before it and the chunk after it in the same file.
  *
- * The idea of howards-lantern-rag-pipeline/worker/src/learner-ask.ts
+ * The idea of Howard's Lantern's worker/src/learner-ask.ts
  * (`wholeSections`, "Hop 6"): there the rest of each chosen statute's section
  * is added after the rerank, under a character budget. A PDF has no sections,
  * so here the unit is the neighbouring chunk. A chunk is cut at a sentence end,

@@ -5,7 +5,7 @@
 /**
  * A page's text, cut into the pieces the demo retrieves.
  *
- * The shape of howards-lantern-rag-pipeline/worker/src/code-chunks.ts: about
+ * The shape of Howard's Lantern's worker/src/code-chunks.ts: about
  * CHUNK_CHARS a piece, cut at a sentence end where one is near, else at a
  * space. A piece never crosses a page, so every source names one page, and
  * every piece is a verbatim slice of that page's text, so "Show the passage"
