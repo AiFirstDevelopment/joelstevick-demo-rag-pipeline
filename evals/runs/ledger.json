@@ -1,0 +1,58 @@
+{
+  "total_usd": 3.6209,
+  "runs": [
+    {
+      "id": "2026-10-21T17-35-57-baseline",
+      "usd": 0.2541
+    },
+    {
+      "id": "2026-10-21T17-46-11-diagnose-refusals",
+      "usd": 0.0233
+    },
+    {
+      "id": "2026-10-21T17-50-00-round1",
+      "usd": 0.2657
+    },
+    {
+      "id": "round2-crashes-unrecorded-estimate",
+      "usd": 0.02,
+      "note": "two round-2 starts died after their first case(s) before the ledger was written; spend estimated from the per-case average"
+    },
+    {
+      "id": "2026-10-21T18-23-45-round2",
+      "usd": 0.2581
+    },
+    {
+      "id": "2026-10-21T18-38-43-round3-pool48",
+      "usd": 0.2752
+    },
+    {
+      "id": "2026-10-21T18-52-32-round4-context16",
+      "usd": 0.3219
+    },
+    {
+      "id": "2026-10-21T19-05-08-final-repeat1",
+      "usd": 0.2732
+    },
+    {
+      "id": "2026-10-21T19-27-58-final-repeat2",
+      "usd": 0.2682
+    },
+    {
+      "id": "2026-10-21T21-17-59-widen-before",
+      "usd": 0.3226
+    },
+    {
+      "id": "2026-10-21T21-27-27-widen-before",
+      "usd": 0.3303
+    },
+    {
+      "id": "2026-10-21T21-37-07-widen-after",
+      "usd": 0.504
+    },
+    {
+      "id": "2026-10-21T21-45-42-widen-after",
+      "usd": 0.5043
+    }
+  ]
+}

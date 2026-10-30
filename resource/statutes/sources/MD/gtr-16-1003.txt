@@ -1,8 +1,0 @@
-Article - Transportation
-§16–1003.
-(a) The Administration may operate a verification system for electronic credentials.
-(b) (1) Access to the verification system and any data field by a person presented with an electronic credential requires the credential holder’s consent.
-(2) If consent is granted under paragraph (1) of this subsection, the Administration may release through the verification system:
-(i) For a full profile, all data fields that appear on the physical credential that corresponds with the electronic credential that is being verified; and
-(ii) For a limited profile, only the data fields represented in the limited profile for the physical credential that corresponds with the electronic credential that is being verified.
-(c) A third party may administer on behalf of the Administration any system developed to facilitate the issuance, verification, and use of electronic credentials.

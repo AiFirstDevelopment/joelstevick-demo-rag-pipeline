@@ -1,6 +1,4 @@
 node_modules/
-dist/
-.env
-.env.*
-test-results/
 .wrangler/
+.dev.vars
+evals/.dev.vars

@@ -1,0 +1,32 @@
+# Copyright (c) 2026 Joel Stevick
+# SPDX-License-Identifier: MIT
+# Licensed under the MIT License: https://opensource.org/licenses/MIT
+
+# The demo chatbot behind joelstevick.com/demo. It has no public URL: the site's
+# functions call it through the DEMO service binding.
+name = "joelstevick-com-demo"
+main = "src/index.ts"
+compatibility_date = "2026-10-01"
+workers_dev = false
+preview_urls = false
+
+[[d1_databases]]
+binding = "DB"
+database_name = "joelstevick-com-demos"
+database_id = "32fc04d8-e2c7-4690-b1e1-18895851b3e1"
+
+[[vectorize]]
+binding = "VECTORS"
+index_name = "joelstevick-com-demo"
+
+[ai]
+binding = "AI"
+
+# Tells Joel when a demo's first upload finishes.
+[[services]]
+binding = "MAILER"
+service = "joelstevick-com-mailer"
+
+# Deletes the documents of demos unused for 10 days, daily. ANTHROPIC_API_KEY is a secret.
+[triggers]
+crons = ["17 4 * * *"]
