@@ -4,7 +4,7 @@
 
 // The demo Worker as the eval harness runs it: demo/src/app.ts with the same models
 // the deployed one uses (Claude on the key in evals/.dev.vars, bge-m3 through Workers
-// AI, the eval's own Vectorize index), plus three routes for the runner:
+// AI, the eval's own Vectorize index), plus five routes for the runner:
 //   GET  /eval/trace   the model calls since the last read: model, tokens, and for the
 //                      answer model the passage ids it was given
 //   POST /eval/reset   every demo's questions back to zero, so one demo serves every case
@@ -14,6 +14,7 @@
 import { createApp, type Env } from '../demo/src/app'
 import { ANSWER_MODEL, RERANK_MODEL, claudeFor, embedFor, vectorsFor } from '../demo/src/models'
 
+// One traced model call, as /eval/trace returns it: `pool` on rerank calls, `given` on answer calls.
 interface Call {
   model: string
   input_tokens: number
@@ -26,14 +27,17 @@ interface Call {
   error?: string
 }
 
+// The calls traced since the last /eval/trace read; module state, so it lasts as long as the dev Worker does.
 const calls: Call[] = []
 
 // Every Anthropic call goes through fetch: read its request and usage on the way past.
 // Patched once at module load, before any request: `claudeFor` calls the global `fetch`, so every Anthropic request passes here.
 const realFetch = globalThis.fetch
 globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+  // Only Anthropic requests are traced; any other request passes straight through.
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
   if (!url.startsWith('https://api.anthropic.com/')) return realFetch(input, init)
+  // The request body names the model and holds the prompt the passages are read back out of below.
   const started = Date.now()
   const sent = JSON.parse(String(init?.body ?? '{}')) as { model: string; messages: { content: string }[] }
   let response: Response
@@ -51,6 +55,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     stop_reason?: string
     error?: { message?: string }
   }
+  // Model, token usage and stop reason from the reply; tokens count as 0 when the reply has no usage block.
   const call: Call = {
     model: sent.model,
     input_tokens: body.usage?.input_tokens ?? 0,
@@ -58,6 +63,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     stop_reason: body.stop_reason ?? null,
     ms: Date.now() - started,
   }
+  // An HTTP error is recorded with Anthropic's message; the reply's text is kept for reading a case back.
   if (!response.ok) call.error = `${response.status} ${body.error?.message ?? ''}`
   call.reply = (body.content ?? []).filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
   // The reranker's passages back out of its prompt: split at the blank line before each `[n] ` label, labels stripped, in pool order.
@@ -68,6 +74,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   return response
 }
 
+// The demo's own app with the real models, built as demo/src/index.ts builds it, from this Worker's bindings.
 const app = createApp((env) => ({
   claude: claudeFor(env.ANTHROPIC_API_KEY),
   embed: embedFor(env.AI),
@@ -85,6 +92,7 @@ export default {
       return Response.json({ ok: true })
     }
     if (pathname === '/eval/forget' && request.method === 'POST') {
+      // Every chunk id of the demo from D1, deleted from Vectorize 500 at a time, as the demo's own delete does.
       const { demo_id } = (await request.json()) as { demo_id: string }
       const ids = (await env.DB.prepare('SELECT id FROM chunks WHERE demo_id = ?').bind(demo_id).all<{ id: string }>()).results.map((r) => r.id)
       for (let i = 0; i < ids.length; i += 500) await env.VECTORS?.deleteByIds(ids.slice(i, i + 500))
@@ -92,6 +100,7 @@ export default {
     }
     if (pathname === '/eval/chunks' && request.method === 'POST') {
       const { ids } = (await request.json()) as { ids: string[] }
+      // Read 50 ids a query, which keeps each statement under D1's limit on bound parameters.
       const found = []
       for (let i = 0; i < ids.length; i += 50) {
         const part = ids.slice(i, i + 50)
@@ -102,12 +111,14 @@ export default {
     }
     if (pathname === '/eval/indexed' && request.method === 'POST') {
       const { demo_id } = (await request.json()) as { demo_id: string }
+      // The demo's chunk ids from D1, each looked up in Vectorize to see whether its vector is written yet.
       const ids = (await env.DB.prepare('SELECT id FROM chunks WHERE demo_id = ?').bind(demo_id).all<{ id: string }>()).results.map((r) => r.id)
       let ready = 0
       // `getByIds` returns only vectors already written, 20 a call; `ready === chunks` means the index has caught up.
       for (let i = 0; i < ids.length; i += 20) ready += (await env.VECTORS!.getByIds(ids.slice(i, i + 20))).length
       return Response.json({ chunks: ids.length, ready })
     }
+    // Every other path is the demo's own route, served unchanged.
     return app.fetch(request, env)
   },
 }

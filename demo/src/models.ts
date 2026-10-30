@@ -9,6 +9,7 @@
  */
 import type { Chunk } from './retrieval'
 
+/** Claude Sonnet writes the answer; Claude Haiku, faster and cheaper, reranks; bge-m3 on Workers AI embeds the chunks and the question. */
 export const ANSWER_MODEL = 'claude-sonnet-5-5'
 export const RERANK_MODEL = 'claude-haiku-5-5'
 export const EMBEDDING_MODEL = '@cf/baai/bge-m3'
@@ -28,15 +29,20 @@ export type Claude = (request: {
 /** An embedding: one text as a point in the embedding model's space (bge-m3: 1,024 numbers). */
 export type Vector = number[]
 
+/** The texts as vectors, one per text, in the same order. */
 export type Embed = (texts: string[]) => Promise<Vector[]>
 
+/** The vector index, holding each demo's chunk vectors in a namespace of its own. */
 export interface Vectors {
+  /** Writes each id's vector into `namespace`, replacing any vector already stored under that id. */
   upsert(namespace: string, items: { id: string; values: Vector }[]): Promise<void>
   /** The nearest ids in `namespace`, best first. */
   query(namespace: string, values: Vector, topK: number): Promise<string[]>
+  /** Removes these ids' vectors, whatever namespace they are in. */
   deleteByIds(ids: string[]): Promise<void>
 }
 
+/** What a demo calls. Without `embed` or `vectors` (no Workers AI or Vectorize binding), it answers from keyword search alone. */
 export interface Models {
   claude: Claude
   embed?: Embed
@@ -46,6 +52,7 @@ export interface Models {
 /** Claude through the Messages API, with structured output and no retries. */
 export function claudeFor(apiKey: string | undefined): Claude {
   return async ({ model, system, user, schema, maxTokens, timeoutMs, effort }) => {
+    // No key: throw at once, so the caller degrades exactly as it does when the model fails.
     if (apiKey === undefined || apiKey === '') throw new Error('no ANTHROPIC_API_KEY')
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -61,13 +68,17 @@ export function claudeFor(apiKey: string | undefined): Claude {
         output_config: { format: { type: 'json_schema', schema }, ...(effort === undefined ? {} : { effort }) },
       }),
     })
+    // The body is read whether or not the call succeeded, since an error reply carries its message.
     const body = (await response.json()) as { content?: { type: string; text?: string }[]; error?: { message?: string } }
     if (!response.ok) throw new Error(`Anthropic ${response.status}: ${body.error?.message ?? ''}`)
+    // The reply's text blocks, joined; any other block, such as the model's thinking, is skipped.
     const text = (body.content ?? []).filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
+    // Text that is not JSON throws here, which the caller treats as a failed call.
     return JSON.parse(text)
   }
 }
 
+/** bge-m3 on Workers AI as an `Embed`; undefined without the AI binding, so the demo runs on keywords alone. */
 export function embedFor(ai: Ai | undefined): Embed | undefined {
   if (ai === undefined) return undefined
   // `ai.run` is typed per model; cast once to what bge-m3 returns: one vector per text, in order.
@@ -75,6 +86,7 @@ export function embedFor(ai: Ai | undefined): Embed | undefined {
   return async (texts) => (await run(EMBEDDING_MODEL, { text: texts })).data
 }
 
+/** The Vectorize index as `Vectors`; undefined without the binding. */
 export function vectorsFor(index: VectorizeIndex | undefined): Vectors | undefined {
   if (index === undefined) return undefined
   return {
@@ -87,6 +99,7 @@ export function vectorsFor(index: VectorizeIndex | undefined): Vectors | undefin
       return (await index.query(values, { topK, namespace })).matches.map((match) => match.id)
     },
     async deleteByIds(ids) {
+      // Vectorize deletes by id alone; a chunk id starts with its demo's id, so only that demo's vectors go.
       await index.deleteByIds(ids)
     },
   }
@@ -181,9 +194,11 @@ Never write that the passages or the documents do not say something: you see onl
 
 /** Sonnet's answer, unchecked. Throws when the model fails, so the ask can be given back. */
 export async function answer(claude: Claude, question: string, given: Chunk[]): Promise<{ answer: string; items: string[]; sources: string[] }> {
+  // A widened passage that runs past its first page is labelled with the range of pages.
   const pages = (chunk: Chunk) => (chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? `pages ${chunk.page}–${chunk.lastPage}` : `page ${chunk.page}`)
   // Each passage goes in under its id and its place in the file; the answer's sources must copy those ids.
   const listed = given.map((chunk) => `[${chunk.id}] (${chunk.file}, ${pages(chunk)})\n${chunk.text}`).join('\n\n')
+  // No `effort` is passed: the answer model thinks at its default.
   const reply = (await claude({
     model: ANSWER_MODEL,
     system: ANSWER_RULES,
