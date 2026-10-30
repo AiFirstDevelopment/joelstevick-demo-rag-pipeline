@@ -1,8 +1,8 @@
 # The RAG pipeline behind joelstevick.com/demo
 
 [joelstevick.com/demo](https://joelstevick.com/demo) lets a visitor upload their own PDFs and ask
-up to ten questions. Each answer is two to four sentences citing the file and page it rests on, and
-an answer whose citations don't check out is never shown. This repository is that demo's code,
+up to ten questions. Each answer is two to four sentences, or one for each item when the question asks
+for a sentence each, citing the file and page it rests on, and an answer whose citations don't check out is never shown. This repository is that demo's code,
 from the page in the browser to the Worker that answers, plus the eval harness used to tune it.
 
 It runs on Cloudflare: a Pages site (the page and its functions), a private Worker (the pipeline),

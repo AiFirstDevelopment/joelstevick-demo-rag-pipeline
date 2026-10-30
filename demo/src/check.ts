@@ -12,7 +12,60 @@
  */
 import type { Chunk } from './retrieval'
 
+/**
+ * The longest ordinary answer, in sentences. The demo page promises "two to four sentences",
+ * and a reply longer than this is refused rather than trimmed (see `checkAnswer`).
+ */
 export const MAX_SENTENCES = 4
+
+/**
+ * The longest answer to a question that asks for a sentence per item ("what jobs have I held,
+ * one sentence each"), in sentences.
+ *
+ * Why it exists: a visitor asked exactly that of a two-page résumé, and the model wrote a
+ * correct, fully cited answer of seven sentences, one per job. The four-sentence cap refused it
+ * as `overlong`, and the visitor was told the answer could not be found. The model had done
+ * what was asked; the check had not allowed for the asking.
+ *
+ * Why 12: it matches ANSWER_CHUNKS (12, models.ts), the number of passages the reranker chooses,
+ * and it is room for a two-page résumé's jobs or a document's chapters with space to spare. A
+ * passage can hold several items (one résumé page holds several jobs), so it is a judgement, not
+ * a count of passages. It is a ceiling, not a target: an answer that runs past it is still
+ * refused, so a runaway reply is never shown.
+ * (The constant is repeated here rather than imported from models.ts so that this file, the one
+ * that decides what may be shown, depends on nothing but the chunk type.)
+ */
+export const MAX_LIST_SENTENCES = 12
+
+/**
+ * Whether the question asks for one sentence (or one line) for each of several things, so its
+ * answer may run past MAX_SENTENCES.
+ *
+ * It is matched on the visitor's own wording, not on the answer, so the model cannot grant
+ * itself a longer answer. It needs a count of one, a length word, and then a word that spreads
+ * it over the items:
+ *
+ *   - "1 sentence each", "one line apiece", "a single sentence each";
+ *   - "one sentence per job", "a line for each employer", "one sentence for every role".
+ *
+ * Why so strict: "each" on its own is common in ordinary questions ("How much does each plan
+ * cost?", "Does each party sign?"), and those must keep the four-sentence cap the page promises.
+ * The count word keeps phrases such as "the bottom line per quarter" from matching too. A
+ * per-item request worded another way ("describe every job in a sentence") does not match; its
+ * long answer is then refused, never wrongly shown, which is the safe way to miss.
+ *
+ * A question that only asks for a list ("list the jobs I have held") does not match either: the
+ * answer rules have the model name every item in one sentence separated by semicolons, which
+ * fits the ordinary cap.
+ */
+export function asksForEach(question: string): boolean {
+  return /\b(1|one|a|single)\s+(single\s+|short\s+)?(sentence|line)\s+(each|apiece|per\s+[a-z]|for\s+(each|every)\b)/i.test(question)
+}
+
+/** The sentence cap for this question: MAX_LIST_SENTENCES when it asks for one per item, MAX_SENTENCES otherwise. */
+export function sentenceLimit(question: string): number {
+  return asksForEach(question) ? MAX_LIST_SENTENCES : MAX_SENTENCES
+}
 
 const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve']
 
@@ -110,7 +163,11 @@ export function checkAnswer(reply: Reply, given: Chunk[], question: string): Che
   for (const chunk of sources) for (const figure of figuresIn(chunk.text)) grounded.add(figure)
   for (const figure of figuresIn(question)) grounded.add(figure)
   for (const figure of figuresIn(answer)) if (!grounded.has(figure)) return { ok: false, reason: 'ungrounded' }
-  // The page promises two to four sentences; a longer answer is refused, not trimmed.
-  if (sentences(answer) > MAX_SENTENCES) return { ok: false, reason: 'overlong' }
+  // Length. The page promises two to four sentences, so an ordinary answer longer than that is
+  // refused, not trimmed: a trimmed answer could drop the sentence a citation was for. A question
+  // that asks for a sentence per item ("one sentence each") is allowed one per item, up to
+  // MAX_LIST_SENTENCES; past that it is refused the same way. `sentenceLimit` reads the
+  // question, never the answer, so the model cannot lengthen its own allowance.
+  if (sentences(answer) > sentenceLimit(question)) return { ok: false, reason: 'overlong' }
   return { ok: true, answer, cited: sources }
 }

@@ -147,11 +147,21 @@ export async function rerank(claude: Claude, question: string, pool: Chunk[]): P
   }
 }
 
+/**
+ * The answer model's instructions. The length rules here and the length check in check.ts
+ * (`sentenceLimit`) must agree: an answer these rules ask for must pass the check, or the
+ * visitor is shown "couldn't find that" for an answer that was right. So:
+ *
+ *   - an ordinary question gets two to four sentences (check.ts MAX_SENTENCES, 4);
+ *   - "every one of something" is one sentence, the items separated by semicolons;
+ *   - "a sentence for each" is one sentence per item, at most 12 (check.ts MAX_LIST_SENTENCES).
+ */
 const ANSWER_RULES = `You answer a question from passages of the asker's own documents, and from nothing else.
 Answer in two to four short sentences, in plain words, with figures in digits exactly as the passages state them.
+When the question asks for a sentence for each one of something ("one sentence each", "a line per job"), write one sentence for each, at most 12 in all, and cite every passage you used.
 Put the ids of the passages you used (for example "a1b2c3-4") in "sources".
 Do not write file names or page numbers: they are shown under your answer.
-When the question asks for every one of something, name every one the passages give in a single sentence, separated by semicolons, and cite every passage you named one from.
+When the question asks for every one of something without asking for a sentence each, name every one the passages give in a single sentence, separated by semicolons, and cite every passage you named one from.
 If no passage answers the question, leave "answer" empty and "sources" empty.
 Never write that the passages or the documents do not say something: you see only some of them, so leave the answer empty instead.`
 
