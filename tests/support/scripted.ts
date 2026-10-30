@@ -15,14 +15,18 @@
  *   [vectors-down]      the embedding model throws, so the ask has BM25 alone
  *   [pick:w1 w2]        the reranker chooses only the passages holding w1, then w2
  *   [span]              the answer is the whole of its first passage, on one line
+ *   [items]             the answer is a list: one item per sentence of its first passage
+ *   [invent-item]       a list whose second item states $4,200, which no chunk does
+ *   [long-item]         a list whose one item is the first three sentences of its first passage
  *
  * A question about jobs or a role is answered from the "<role> at <employer>,
  * <year> to <year>" entries in the passages it was given, and from nothing
  * else: every entry for "what jobs", the one whose employer the question names
- * otherwise, and no answer when none matches. "What jobs" is answered in one
- * sentence, the jobs separated by semicolons, as the answer rules ask; when the
- * question asks for a sentence each ("one sentence each"), it is answered with
- * one sentence per job instead, as the real model did for a visitor.
+ * otherwise, and no answer when none matches. "What jobs" is answered as a list,
+ * as the answer rules ask: a lead-in, then one item per job ("<role> at
+ * <employer>, <year> to <year>"); when the question asks for a sentence each, each
+ * item is a sentence ("He was <role> at <employer> from <year> to <year>.") and
+ * there is no lead-in.
  *
  * Otherwise the answer is the first sentence of the first chunk it was given,
  * citing that chunk. The reranker keeps the pool's order and honours the
@@ -34,7 +38,7 @@ import { ANSWER_MODEL, RERANK_MODEL, type Claude, type Embed, type Models, type 
 const ENTRY = /([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\sat\s([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s(\d{4})\sto\s(\d{4})/g
 const flat = (text: string) => text.replace(/\s+/g, ' ')
 
-function jobs(question: string, passages: string): { answer: string; sources: string[] } {
+function jobs(question: string, passages: string): { answer: string; items?: string[]; sources: string[] } {
   const entries = [...passages.matchAll(/^\[([^\]]+)\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/gm)]
     .flatMap(([, id, text]) => [...text.matchAll(ENTRY)].map(([, role, employer, from, to]) => ({ id, role: flat(role), employer: flat(employer), from, to })))
   const asked = entries.filter((e) => question.includes(e.employer))
@@ -43,17 +47,13 @@ function jobs(question: string, passages: string): { answer: string; sources: st
     return { answer: `He was ${e.role} at ${e.employer} from ${e.from} to ${e.to}.`, sources: [e.id] }
   }
   if (!/\bjobs\b/i.test(question) || entries.length === 0) return { answer: '', sources: [] }
-  // "One sentence each": a sentence per job, so the answer runs past the ordinary four-sentence cap.
+  const sources = [...new Set(entries.map((e) => e.id))]
+  // "One sentence each": a list of sentences, one per job, with no lead-in.
   if (/\beach\b/i.test(question)) {
-    return {
-      answer: entries.map((e) => `He was ${e.role} at ${e.employer} from ${e.from} to ${e.to}.`).join(' '),
-      sources: [...new Set(entries.map((e) => e.id))],
-    }
+    return { answer: '', items: entries.map((e) => `He was ${e.role} at ${e.employer} from ${e.from} to ${e.to}.`), sources }
   }
-  return {
-    answer: `He has held these jobs: ${entries.map((e) => `${e.role} at ${e.employer}`).join('; ')}.`,
-    sources: [...new Set(entries.map((e) => e.id))],
-  }
+  // "What jobs": a lead-in and one short item per job.
+  return { answer: 'He has held these jobs:', items: entries.map((e) => `${e.role} at ${e.employer}, ${e.from} to ${e.to}`), sources }
 }
 
 export const claude: Claude = async ({ model, system, user }) => {
@@ -83,6 +83,12 @@ export const claude: Claude = async ({ model, system, user }) => {
       const whole = /^\[[^\]]+\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/m.exec(user.split('Passages:\n\n')[1] ?? '')?.[1] ?? text
       return { answer: flat(whole), sources: [id] }
     }
+    // The list markers: the first passage, flattened, cut into its sentences.
+    const passage = /^\[[^\]]+\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/m.exec(user.split('Passages:\n\n')[1] ?? '')?.[1] ?? text
+    const said = flat(passage).match(/[^.!?]+[.!?]/g)?.map((one) => one.trim()) ?? [flat(passage)]
+    if (question.includes('[items]')) return { answer: '', items: said, sources: [id] }
+    if (question.includes('[invent-item]')) return { answer: 'The steps:', items: [said[0], 'It costs $4,200.'], sources: [id] }
+    if (question.includes('[long-item]')) return { answer: '', items: [said.slice(0, 3).join(' ')], sources: [id] }
     if (question.includes('[loose]')) return { answer: `Roughly speaking, ${sentence.toLowerCase()}`, sources: [id] }
     return { answer: sentence, sources: [id] }
   }

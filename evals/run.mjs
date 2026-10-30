@@ -164,7 +164,8 @@ function fileOf(c) {
 
 function score(c, asked, given, calls, ms, usd) {
   const body = asked.body ?? {}
-  const answer = typeof body.answer === 'string' ? body.answer : ''
+  // A list answer's items are part of what it says: a fact named only in a bullet is still met.
+  const answer = [typeof body.answer === 'string' ? body.answer : '', ...(Array.isArray(body.items) ? body.items : [])].join('\n')
   const found = asked.status === 200 && body.found === true
   const cited = (body.sources ?? []).map((s) => ({ id: s.id, file: s.file, page: s.page, passage: s.passage }))
   // A quote a chunk boundary splits (book-07) counts when either half is in one passage.

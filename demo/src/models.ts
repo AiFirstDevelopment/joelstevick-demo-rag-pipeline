@@ -148,25 +148,39 @@ export async function rerank(claude: Claude, question: string, pool: Chunk[]): P
 }
 
 /**
- * The answer model's instructions. The length rules here and the length check in check.ts
- * (`sentenceLimit`) must agree: an answer these rules ask for must pass the check, or the
- * visitor is shown "couldn't find that" for an answer that was right. So:
+ * The answer model's instructions. The shape and length rules here and the check in check.ts
+ * (`checkAnswer`) must agree: an answer these rules ask for must pass the check, or the visitor
+ * is shown "couldn't find that" for an answer that was right. So:
  *
- *   - an ordinary question gets two to four sentences (check.ts MAX_SENTENCES, 4);
- *   - "every one of something" is one sentence, the items separated by semicolons;
- *   - "a sentence for each" is one sentence per item, at most 12 (check.ts MAX_LIST_SENTENCES).
+ *   - an ordinary answer is prose in "answer", two to four sentences (check.ts MAX_SENTENCES, 4),
+ *     with "items" empty;
+ *   - an answer that names several things of one kind (every job, every fee, every chapter), or
+ *     one the question asks to have a sentence or a line each, is a list: one entry per thing in
+ *     "items", at most 12 (check.ts MAX_ITEMS), each a phrase or one sentence (the check allows
+ *     two, MAX_ITEM_SENTENCES), and at most a one-sentence lead-in in "answer". The page draws
+ *     the entries as bullets.
+ *
+ * A list asked for implicitly counts: "what jobs have I held" is a list as much as "list my jobs".
+ * Before lists, such an answer was one sentence with semicolons between the items, which read as
+ * a run-on paragraph.
+ *
+ * When there are more than 12, the model lists the first 12 and its lead-in says the list is
+ * not complete, so the visitor is never shown a shortened list as if it were the whole. The
+ * lead-in says so without a count ("These are the first jobs listed; the list is not complete."):
+ * the figure check reads "12" or "twelve" as a figure, and refuses an answer stating one that no
+ * cited passage states, so "the first 12" would turn a right answer into "couldn't find that".
  */
 const ANSWER_RULES = `You answer a question from passages of the asker's own documents, and from nothing else.
-Answer in two to four short sentences, in plain words, with figures in digits exactly as the passages state them.
-When the question asks for a sentence for each one of something ("one sentence each", "a line per job"), write one sentence for each, at most 12 in all, and cite every passage you used.
+Write in plain words, with figures in digits exactly as the passages state them.
 Put the ids of the passages you used (for example "a1b2c3-4") in "sources".
 Do not write file names or page numbers: they are shown under your answer.
-When the question asks for every one of something without asking for a sentence each, name every one the passages give in a single sentence, separated by semicolons, and cite every passage you named one from.
-If no passage answers the question, leave "answer" empty and "sources" empty.
+When the answer names several things of one kind (every job, every fee, every chapter), or the question asks for a sentence or a line for each one, answer with a list: put each thing in "items", one entry per thing, each a short phrase or one sentence, and in "answer" put at most one short sentence introducing the list, or nothing. Name every one the passages give and cite every passage you named one from. If there are more than 12, list the first 12 and say in "answer" that the list is not complete, in words and without a count.
+Otherwise answer in "answer" in two to four short sentences, and leave "items" empty.
+If no passage answers the question, leave "answer", "items" and "sources" empty.
 Never write that the passages or the documents do not say something: you see only some of them, so leave the answer empty instead.`
 
 /** Sonnet's answer, unchecked. Throws when the model fails, so the ask can be given back. */
-export async function answer(claude: Claude, question: string, given: Chunk[]): Promise<{ answer: string; sources: string[] }> {
+export async function answer(claude: Claude, question: string, given: Chunk[]): Promise<{ answer: string; items: string[]; sources: string[] }> {
   const pages = (chunk: Chunk) => (chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? `pages ${chunk.page}–${chunk.lastPage}` : `page ${chunk.page}`)
   // Each passage goes in under its id and its place in the file; the answer's sources must copy those ids.
   const listed = given.map((chunk) => `[${chunk.id}] (${chunk.file}, ${pages(chunk)})\n${chunk.text}`).join('\n\n')
@@ -176,16 +190,20 @@ export async function answer(claude: Claude, question: string, given: Chunk[]): 
     user: `Question: ${question}\n\nPassages:\n\n${listed}`,
     schema: {
       type: 'object',
-      properties: { answer: { type: 'string' }, sources: { type: 'array', items: { type: 'string' } } },
-      required: ['answer', 'sources'],
+      // `items` is the list form: one entry per thing named, empty for a prose answer (ANSWER_RULES).
+      properties: { answer: { type: 'string' }, items: { type: 'array', items: { type: 'string' } }, sources: { type: 'array', items: { type: 'string' } } },
+      required: ['answer', 'items', 'sources'],
       additionalProperties: false,
     },
     // Sonnet 5.5 thinks before answering, inside this limit: 600 left answers within a few
     // tokens of being cut off (eval questions book-14, book-15).
     maxTokens: 2000,
     timeoutMs: 30_000,
-  })) as { answer?: unknown; sources?: unknown }
+  })) as { answer?: unknown; items?: unknown; sources?: unknown }
   // Anything but a string answer and an array of sources is a failure, not an answer; a non-string source is dropped.
   if (typeof reply.answer !== 'string' || !Array.isArray(reply.sources)) throw new Error('the answer model replied out of shape')
-  return { answer: reply.answer, sources: reply.sources.filter((id): id is string => typeof id === 'string') }
+  // `items` is required by the schema, but a reply without it is read as prose rather than failed:
+  // the answer is still checked in full, and only its list form is lost. A non-string entry is dropped.
+  const items = Array.isArray(reply.items) ? reply.items.filter((item): item is string => typeof item === 'string') : []
+  return { answer: reply.answer, items, sources: reply.sources.filter((id): id is string => typeof id === 'string') }
 }
