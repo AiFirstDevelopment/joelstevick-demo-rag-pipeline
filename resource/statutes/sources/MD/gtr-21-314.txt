@@ -1,9 +1,0 @@
-Article - Transportation
-§21–314.
-(a) In this section, “HOV lane” means a high occupancy vehicle lane, the use of which is restricted by a traffic control device during specified times to vehicles carrying at least a specified number of occupants.
-(b) Except as provided in subsection (c) of this section, a person may not drive a vehicle in an HOV lane unless authorized by a traffic control device.
-(c) The following vehicles may be driven in an HOV lane at all times regardless of the number of passengers in or on the vehicle:
-(1) A bus;
-(2) A motorcycle;
-(3) A plug–in electric drive vehicle displaying a valid permit issued under § 25–108 of this article; and
-(4) A tow truck that is properly registered in accordance with § 13–920 of this article and is using any visual signal that meets the requirements of § 22–218 of this article while responding to a call for service if an appropriate law enforcement agency has authorized the tow truck operator to use HOV lanes.

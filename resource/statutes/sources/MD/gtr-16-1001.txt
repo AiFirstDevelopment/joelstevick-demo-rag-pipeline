@@ -1,8 +1,0 @@
-Article - Transportation
-§16–1001.
-(a) In this subtitle the following words have the meanings indicated.
-(b) “Credential holder” means the individual to whom an electronic credential is issued.
-(c) “Data field” means a discrete piece of information printed or otherwise appearing on a license or an identification card.
-(d) “Electronic credential” means an electronic representation of a license, an identification card, or a data field.
-(e) “Full profile” means all the information provided on a license or an identification card.
-(f) “Limited profile” means a portion of the information provided on a license or an identification card.

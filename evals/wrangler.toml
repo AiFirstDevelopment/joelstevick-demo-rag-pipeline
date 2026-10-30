@@ -1,0 +1,26 @@
+# Copyright (c) 2026 Joel Stevick
+# SPDX-License-Identifier: MIT
+# Licensed under the MIT License: https://opensource.org/licenses/MIT
+
+# The eval harness's Worker: the demo's real routes and real models, run locally by
+# `npm run eval` (evals/run.mjs). Workers AI and the eval's own Vectorize index are
+# reached remotely; D1 is local; there is no mailer, so nobody is emailed. The
+# Anthropic key is read from evals/.dev.vars, which git ignores.
+name = "joelstevick-com-demo-eval"
+main = "worker.ts"
+# The newest date the local workerd in wrangler 4.86 supports; the deployed demo uses 2026-10-01.
+compatibility_date = "2026-05-03"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "joelstevick-com-demos-eval"
+database_id = "00000000-0000-0000-0000-000000000000"
+
+[[vectorize]]
+binding = "VECTORS"
+index_name = "joelstevick-com-demo-eval"
+remote = true
+
+[ai]
+binding = "AI"
+remote = true

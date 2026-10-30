@@ -1,0 +1,313 @@
+<!doctype html>
+<!--
+  Copyright (c) 2026 Joel Stevick
+  SPDX-License-Identifier: MIT
+  Licensed under the MIT License: https://opensource.org/licenses/MIT
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Test the answer quality on your own documents — Joel Stevick</title>
+<meta name="description" content="A free test of answer quality and source checks: upload your own PDFs and ask up to ten questions, each answer citing the file and page it rests on.">
+<link rel="canonical" href="https://joelstevick.com/demo">
+<meta property="og:title" content="Try it on your own PDFs: the free demo">
+<meta property="og:description" content="A free test of answer quality and source checks: upload your own PDFs and ask up to ten questions, each answer citing the file and page it rests on.">
+<meta property="og:image" content="https://joelstevick.com/img/og.jpg">
+<meta property="og:url" content="https://joelstevick.com/demo">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Joel Stevick">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://joelstevick.com/img/og.jpg">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23254d42'/><text x='32' y='43' font-family='Helvetica,Arial' font-size='30' font-weight='700' fill='white' text-anchor='middle'>JS</text></svg>">
+<link rel="stylesheet" href="/styles.css">
+<script src="/account.js" defer></script>
+<script src="/track.js" defer></script>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="/"><img src="/img/joel-stevick-avatar.jpg" alt="" width="36" height="36">Joel Stevick</a>
+    <nav>
+      <a href="/">Home</a>
+      <a href="/#services">Services</a>
+      <a href="/#accessibility">Accessibility</a>
+      <a href="/#work">Work</a>
+      <a href="/stories">Stories</a>
+      <span class="account"><a href="/sign-in" data-signed-out>Sign in</a><a href="/admin" rel="nofollow" data-admin hidden>Admin</a><a href="/projects" data-signed-in hidden>Projects</a><a href="/" data-signed-in data-sign-out hidden>Sign out</a></span>
+      <a class="button try" href="/demo">See the answer quality</a>
+      <a class="button" href="/#contact">Get in touch</a>
+    </nav>
+  </div>
+</header>
+
+<main id="main" class="case demo">
+  <div class="wrap">
+    <p class="eyebrow">See the answer quality</p>
+    <h1>Ask your own documents.</h1>
+
+    <div id="signed-out" hidden>
+      <p class="expired" id="expired" hidden>This demo link has expired or is no longer valid. A demo's search index is deleted after 10 days without use.</p>
+      <p class="lede">Upload a set of your own PDFs and ask a chatbot built from them on the spot. It shows the answer quality and the source checks on files you can hand it in a minute: each answer is two to four sentences with the file and page it rests on, and an answer whose sources don't check out is never shown. A real build connects to your company's systems instead of PDFs. The starter AI assistant, $4,500, is this on your documents or one of your systems.</p>
+      <ul class="limits">
+        <li>Up to 10 questions.</li>
+        <li>Up to 5 PDFs, 300 pages and 500 KB of text in all. Scanned pages without text are skipped.</li>
+        <li class="retention">Your PDFs are read in this browser and never uploaded. Only the text of each page and the file name are sent. The demo's search index is deleted after 10 days without use. The text, your questions and the answers are kept for up to 25 months to analyse and improve the demo and to build test sets for chatbots (with your consent in the EEA, UK and Switzerland). Don't upload anything confidential, or anything a government controls (classified, controlled unclassified or export-controlled). Remove a PDF and its text goes with it. <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a></li>
+        <li>Try it free — just verify your email.</li>
+      </ul>
+      <div class="actions"><a class="button" id="try-it" href="/register?for=demo">Try it free</a></div>
+    </div>
+
+    <div id="signed-in" hidden>
+      <p class="notice retention">Your PDFs are read in this browser and never uploaded. Only the text of each page and the file name are sent. The demo's search index is deleted after 10 days without use. The text, your questions and the answers are kept for up to 25 months to analyse and improve the demo and to build test sets for chatbots (with your consent in the EEA, UK and Switzerland). Don't upload anything confidential, or anything a government controls (classified, controlled unclassified or export-controlled). Remove a PDF and its text goes with it. <a href="/privacy">Privacy policy</a> · <a href="/terms">Terms</a>. Bookmark this page's address to come back on another device.</p>
+      <p class="notice" id="cleared" hidden>Your documents' search index was deleted after 10 days without use. Upload them again to keep asking.</p>
+      <div class="upload">
+        <!-- The native input is cleared after each upload, so its own "No file chosen" would contradict the list below; the label is the button. -->
+        <label class="button pick">Add PDFs <input id="pdfs" type="file" accept="application/pdf,.pdf" multiple></label>
+      </div>
+      <ul class="files" id="files"></ul>
+      <p class="status" id="upload-status" role="status" aria-live="polite"></p>
+
+      <form class="ask" id="ask">
+        <input name="question" maxlength="500" placeholder="Ask a question about your documents" aria-label="Your question" autocomplete="off">
+        <button class="button" type="submit">Ask</button>
+      </form>
+      <p class="left" id="left"></p>
+      <p class="status" id="ask-status" role="status" aria-live="polite"></p>
+      <div id="answers" aria-live="polite"></div>
+
+      <div class="offer" id="offer" hidden>
+        <h2>That was your ten questions.</h2>
+        <p>Like what you saw? The <a href="/register?service=template">starter AI assistant, $4,500</a>, is this, on your documents or one read-only data source, deployed in your own cloud and live in one week.</p>
+        <p>Want it connected to your company's systems, tuned and tested on your questions? That's a <a href="/register?service=build">custom build</a>, at a fixed price set in a statement of work you accept.</p>
+        <div class="actions">
+          <a class="button" href="/register?service=template">Get the starter assistant</a>
+          <a class="button ghost" href="https://calendly.com/joelstevick/20min" target="_blank" rel="noopener">Book a 20-minute call</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 Joel Stevick</span>
+    <span class="legal"><a href="/how-it-works">How it works</a><a href="/terms">Terms</a><a href="/privacy">Privacy</a><a href="/privacy#choices" data-privacy-choices>Privacy choices</a><a href="https://github.com/AiFirstDevelopment" target="_blank" rel="noopener">GitHub</a></span>
+  </div>
+</footer>
+
+<script type="module">
+  const PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38";
+  const $ = (id) => document.getElementById(id);
+  // Each PDF this tab extracted, kept as an object URL for the life of the tab,
+  // so a source's name can open it at the cited page. Never sent anywhere.
+  const opened = new Map();
+  let left = 0;
+
+  const showLeft = () => { $("left").textContent = left === 1 ? "1 question left." : `${left} questions left.`; };
+  const showOffer = () => { left = 0; showLeft(); $("offer").hidden = false; $("ask").hidden = true; };
+
+  function listFile(file) {
+    const li = document.createElement("li");
+    li.dataset.file = file.name;
+    const label = document.createElement("span");
+    label.className = "file";
+    label.textContent = `${file.name}: ${file.pages} ${file.pages === 1 ? "page" : "pages"}`;
+    if (file.skipped.length > 0) {
+      const skipped = document.createElement("span");
+      skipped.className = "skipped";
+      skipped.textContent = ` · skipped, no text: ${file.skipped.length === file.pages ? "every page" : `page${file.skipped.length === 1 ? "" : "s"} ${file.skipped.join(", ")}`}`;
+      label.append(skipped);
+    }
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "remove";
+    remove.textContent = "Remove";
+    remove.setAttribute("aria-label", `Remove ${file.name}`);
+    remove.addEventListener("click", () => removeFile(file.name, li, remove));
+    li.append(label, remove);
+    $("files").append(li);
+  }
+
+  // One click, no confirmation: a removal is a mistake undone or a new try, and the PDF is
+  // still on the visitor's disk. The row goes only once the server says the file is gone.
+  async function removeFile(name, li, button) {
+    const status = $("upload-status");
+    button.disabled = true;
+    status.textContent = `Removing ${name}…`;
+    try {
+      const response = await fetch("/api/demo/files", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (!response.ok && response.status !== 404) {
+        status.textContent = body.error || `${name} could not be removed.`;
+        button.disabled = false;
+        return;
+      }
+      li.remove();
+      status.textContent = response.ok ? `${name} removed.` : body.error;
+    } catch {
+      status.textContent = `${name} could not be removed.`;
+      button.disabled = false;
+    }
+  }
+
+  async function start() {
+    const params = new URLSearchParams(location.search);
+    const response = await fetch("/api/demo/session").catch(() => null);
+    const body = response ? await response.json().catch(() => ({})) : {};
+    if (!response || !response.ok) {
+      $("signed-out").hidden = false;
+      // Returning visitors verify their email again to open their existing demo.
+      if (/(?:^|; )(?:registered|signed_in)=1(?:;|$)/.test(document.cookie)) $("try-it").textContent = "Verify your email to try it";
+      $("expired").hidden = !(body.expired || params.has("expired"));
+      if (params.has("unavailable")) {
+        $("expired").textContent = "The demo is not available right now. Please try again later.";
+        $("expired").hidden = false;
+      }
+      return;
+    }
+    $("signed-in").hidden = false;
+    body.files.forEach(listFile);
+    $("cleared").hidden = !body.cleared;
+    left = body.left;
+    showLeft();
+    if (left <= 0) showOffer();
+  }
+
+  let pdfjs = null;
+  async function pagesOf(file) {
+    pdfjs ??= await import(`${PDFJS}/pdf.min.mjs`);
+    pdfjs.GlobalWorkerOptions.workerSrc = `${PDFJS}/pdf.worker.min.mjs`;
+    const pdf = await pdfjs.getDocument({ data: new Uint8Array(await file.arrayBuffer()) }).promise;
+    const pages = [];
+    for (let n = 1; n <= pdf.numPages; n++) {
+      const content = await (await pdf.getPage(n)).getTextContent();
+      const text = content.items.map((item) => item.str + (item.hasEOL ? "\n" : " ")).join("")
+        .replace(/[ \t]+/g, " ").replace(/ *\n */g, "\n").trim();
+      pages.push({ page: n, text });
+    }
+    return { page_count: pdf.numPages, pages: pages.filter((p) => p.text !== "") };
+  }
+
+  $("pdfs").addEventListener("change", async (event) => {
+    const input = event.target;
+    const status = $("upload-status");
+    for (const file of [...input.files]) {
+      status.textContent = `Reading ${file.name}…`;
+      try {
+        const { page_count, pages } = await pagesOf(file);
+        status.textContent = `Adding ${file.name}…`;
+        // Only the text of each page and the file name: the file itself stays here.
+        const response = await fetch("/api/demo/files", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: file.name, page_count, pages }),
+        });
+        const body = await response.json().catch(() => ({}));
+        if (!response.ok) { status.textContent = body.error || `${file.name} could not be added.`; continue; }
+        opened.set(file.name, URL.createObjectURL(file));
+        listFile(body);
+        status.textContent = `${file.name} added.`;
+      } catch {
+        status.textContent = `${file.name} could not be read as a PDF.`;
+      }
+    }
+    input.value = "";
+  });
+
+  function render(question, body) {
+    const box = document.createElement("div");
+    box.className = "answer";
+    const q = document.createElement("p");
+    q.className = "q";
+    q.textContent = question;
+    const a = document.createElement("p");
+    a.className = "a";
+    a.textContent = body.answer;
+    box.append(q, a);
+    if (body.sources.length > 0) {
+      const list = document.createElement("ul");
+      list.className = "sources";
+      // One line per file and page, with a button for each passage cited from it.
+      const groups = new Map();
+      for (const source of body.sources) {
+        const key = JSON.stringify([source.file, source.page]);
+        if (!groups.has(key)) groups.set(key, []);
+        groups.get(key).push(source);
+      }
+      for (const sources of groups.values()) {
+        const { file, page } = sources[0];
+        const li = document.createElement("li");
+        const url = opened.get(file);
+        const name = document.createElement(url ? "a" : "span");
+        name.className = "source-name";
+        name.textContent = file;
+        // No rel="noopener": Chrome opens a blob URL in a new browsing context group as about:blank.
+        if (url) { name.href = `${url}#page=${page}`; name.target = "_blank"; }
+        // A passage widened past a page break names the last page it reaches.
+        const last = Math.max(page, ...sources.map((source) => source.last_page ?? page));
+        li.append(name, last > page ? ` · pages ${page}–${last}` : ` · page ${page}`);
+        sources.forEach((source, i) => {
+          const label = sources.length === 1 ? "the passage" : `passage ${i + 1}`;
+          const passage = document.createElement("blockquote");
+          passage.className = "passage";
+          passage.textContent = source.passage;
+          passage.hidden = true;
+          const show = document.createElement("button");
+          show.type = "button";
+          show.textContent = `Show ${label}`;
+          show.addEventListener("click", () => {
+            passage.hidden = !passage.hidden;
+            show.textContent = `${passage.hidden ? "Show" : "Hide"} ${label}`;
+          });
+          li.append(show, passage);
+        });
+        list.append(li);
+      }
+      box.append(list);
+    }
+    $("answers").prepend(box);
+  }
+
+  $("ask").addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const question = form.elements.question.value.trim();
+    const status = $("ask-status");
+    if (question === "") return;
+    const button = form.querySelector("button");
+    button.disabled = true;
+    status.textContent = "Thinking…";
+    try {
+      const response = await fetch("/api/demo/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question }),
+      });
+      const body = await response.json().catch(() => ({}));
+      if (response.status === 429) { status.textContent = ""; showOffer(); return; }
+      if (!response.ok) { status.textContent = body.error || "Something went wrong. Please try again in a minute."; return; }
+      status.textContent = "";
+      form.elements.question.value = "";
+      render(question, body);
+      left = body.left;
+      showLeft();
+      if (left <= 0) showOffer();
+    } catch {
+      status.textContent = "Couldn't reach the server. Please try again in a minute.";
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  start();
+</script>
+
+</body>
+</html>

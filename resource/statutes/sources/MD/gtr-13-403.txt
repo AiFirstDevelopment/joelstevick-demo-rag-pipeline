@@ -1,9 +1,0 @@
-Article - Transportation
-§13–403.
-(a) (1) Except as provided in paragraph (2) of this subsection, the owner of a vehicle subject to registration under this subtitle shall apply to the Administration for the registration of the vehicle in a manner that the Administration requires.
-(2) The application for registration of a low speed vehicle shall be made by electronic transmission under § 13-610 of this title.
-(b) The application shall contain the information that the Administration reasonably requires to determine if the vehicle is entitled to registration.
-(c) If a licensed dealer holds a low speed vehicle for sale and transfers the vehicle to a person other than another licensed dealer, the dealer shall:
-(1) Obtain from the transferee a completed application;
-(2) Collect all fees required to register the low speed vehicle under this subtitle; and
-(3) Within 30 days of the date of delivery of the low speed vehicle, electronically transmit the application and fees in accordance with § 13-610 of this title.

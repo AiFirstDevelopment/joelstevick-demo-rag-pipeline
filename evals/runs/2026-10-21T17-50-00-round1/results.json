@@ -1,0 +1,1952 @@
+{
+  "meta": {
+    "run": "2026-10-21T17-50-00-round1",
+    "label": "round1",
+    "at": "2026-10-21T17:59:25.640Z",
+    "git": "3e8d007+uncommitted",
+    "cases_hash": "9a0be71ce0c8",
+    "corpus": {
+      "resume.pdf": "ffc3664ef4ad",
+      "book.pdf": "4540e4b48945"
+    },
+    "answer_model": "claude-sonnet-5-5",
+    "rerank_model": "claude-haiku-5-5",
+    "embedding_model": "@cf/baai/bge-m3",
+    "usd": 0.2657,
+    "budget": 2,
+    "ledger_total_usd": 0.5431
+  },
+  "results": [
+    {
+      "id": "resume-01",
+      "corpus": "resume",
+      "category": "answerable",
+      "question": "what jobs has he held",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "Founder, Howard's Lantern, Aug 2026 - Present; Consultant - AI Products, Pilot & Pixel, Jan 2024 - Present; Team Lead - EVIR Web and Inspection Builder, Zonar Systems, Jan 2021 - Aug 2026; Senior Software Engineer, Ic-1 (acquired by The Swift Group), 2020 - 2021; Senior Developer / Team Lead, US Mobilesoft, 2004 - 2024; Software Architect, Alexus, 1997 - 2004; Software Engineer, Cisco Systems / Digital, 1992 - 1996.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Founder at Howard's Lantern",
+          "met": true
+        },
+        {
+          "fact": "Consultant at Pilot & Pixel",
+          "met": true
+        },
+        {
+          "fact": "Team Lead at Zonar Systems",
+          "met": true
+        },
+        {
+          "fact": "Senior Developer / Team Lead at US Mobilesoft",
+          "met": true
+        },
+        {
+          "fact": "Senior Software Engineer at Ic-1",
+          "met": true
+        },
+        {
+          "fact": "Software Architect at Alexus",
+          "met": true
+        },
+        {
+          "fact": "Software Engineer at Cisco Systems / Digital",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 9,
+        "sources_in_context": "7/7",
+        "per_source": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 5,
+        "sources_supported": "7/7",
+        "pages": [
+          "resume.pdf p1",
+          "resume.pdf p2"
+        ]
+      },
+      "forbidden_claims": [
+        "the passages do not list his job history"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 2662,
+          "output_tokens": 27,
+          "stop_reason": "end_turn",
+          "ms": 2704,
+          "reply": "{\"ranked\":[7,3,5,1,4,2,6,0,8]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3113,
+          "output_tokens": 350,
+          "stop_reason": "end_turn",
+          "ms": 2916,
+          "reply": "{\"answer\":\"Founder, Howard's Lantern, Aug 2026 - Present; Consultant - AI Products, Pilot & Pixel, Jan 2024 - Present; Team Lead - EVIR Web and Inspection Builder, Zonar Systems, Jan 2021 - Aug 2026; Senior Software Engineer, Ic-1 (acquired by The Swift Group), 2020 - 2021; Senior Developer / Team Lead, US Mobilesoft, 2004 - 2024; Software Architect, Alexus, 1997 - 2004; Software Engineer, Cisco Systems / Digital, 1992 - 1996.\",\"sources\":[\"ex95jxawxefhnxpa-ovxjrstz-2\",\"ex95jxawxefhnxpa-ovxjrstz-5\",\"ex95jxawxefhnxpa-ovxjrstz-6\",\"ex95jxawxefhnxpa-ovxjrstz-7\",\"ex95jxawxefhnxpa-ovxjrstz-8\"]}",
+          "given": [
+            "ex95jxawxefhnxpa-ovxjrstz-2",
+            "ex95jxawxefhnxpa-ovxjrstz-7",
+            "ex95jxawxefhnxpa-ovxjrstz-6",
+            "ex95jxawxefhnxpa-ovxjrstz-0",
+            "ex95jxawxefhnxpa-ovxjrstz-5",
+            "ex95jxawxefhnxpa-ovxjrstz-8",
+            "ex95jxawxefhnxpa-ovxjrstz-1",
+            "ex95jxawxefhnxpa-ovxjrstz-3",
+            "ex95jxawxefhnxpa-ovxjrstz-4"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 6790,
+      "usd": 0.010005700000000001,
+      "summary": "answered; facts 7/7; sources in context 7/7; cited 7/7"
+    },
+    {
+      "id": "resume-02",
+      "corpus": "both",
+      "category": "answerable",
+      "question": "what jobs has he held",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "Founder of Howard's Lantern (Aug 2026 - present); Consultant - AI Products at Pilot & Pixel (Jan 2024 - present); Team Lead - EVIR Web and Inspection Builder at Zonar Systems (Jan 2021 - Aug 2026); Senior Software Engineer at Ic-1 (2020 - 2021); Senior Developer / Team Lead at US Mobilesoft (2004 - 2024); Software Architect at Alexus (1997 - 2004); Software Engineer at Cisco Systems / Digital (1992 - 1996).",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Founder at Howard's Lantern",
+          "met": true
+        },
+        {
+          "fact": "Consultant at Pilot & Pixel",
+          "met": true
+        },
+        {
+          "fact": "Team Lead at Zonar Systems",
+          "met": true
+        },
+        {
+          "fact": "Senior Developer / Team Lead at US Mobilesoft",
+          "met": true
+        },
+        {
+          "fact": "Senior Software Engineer at Ic-1",
+          "met": true
+        },
+        {
+          "fact": "Software Architect at Alexus",
+          "met": true
+        },
+        {
+          "fact": "Software Engineer at Cisco Systems / Digital",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "7/7",
+        "per_source": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 5,
+        "sources_supported": "7/7",
+        "pages": [
+          "resume.pdf p1",
+          "resume.pdf p2"
+        ]
+      },
+      "forbidden_claims": [
+        "the passages do not list his job history"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5232,
+          "output_tokens": 25,
+          "stop_reason": "end_turn",
+          "ms": 2296,
+          "reply": "{\"ranked\":[19,23,9,7,13,15,17,3]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3494,
+          "output_tokens": 343,
+          "stop_reason": "end_turn",
+          "ms": 3069,
+          "reply": "{\"answer\":\"Founder of Howard's Lantern (Aug 2026 - present); Consultant - AI Products at Pilot & Pixel (Jan 2024 - present); Team Lead - EVIR Web and Inspection Builder at Zonar Systems (Jan 2021 - Aug 2026); Senior Software Engineer at Ic-1 (2020 - 2021); Senior Developer / Team Lead at US Mobilesoft (2004 - 2024); Software Architect at Alexus (1997 - 2004); Software Engineer at Cisco Systems / Digital (1992 - 1996).\",\"sources\":[\"hrkt5xckcmcq3qeb-ofjvsygz-2\",\"hrkt5xckcmcq3qeb-ofjvsygz-5\",\"hrkt5xckcmcq3qeb-ofjvsygz-6\",\"hrkt5xckcmcq3qeb-ofjvsygz-7\",\"hrkt5xckcmcq3qeb-ofjvsygz-8\"]}",
+          "given": [
+            "hrkt5xckcmcq3qeb-ofjvsygz-2",
+            "hrkt5xckcmcq3qeb-ofjvsygz-0",
+            "hrkt5xckcmcq3qeb-ofjvsygz-7",
+            "hrkt5xckcmcq3qeb-ofjvsygz-8",
+            "hrkt5xckcmcq3qeb-ofjvsygz-5",
+            "hrkt5xckcmcq3qeb-ofjvsygz-6",
+            "hrkt5xckcmcq3qeb-ofjvsygz-1",
+            "hrkt5xckcmcq3qeb-wgjrthng-321",
+            "hrkt5xckcmcq3qeb-wgjrthng-57",
+            "hrkt5xckcmcq3qeb-wgjrthng-214",
+            "hrkt5xckcmcq3qeb-wgjrthng-370",
+            "hrkt5xckcmcq3qeb-wgjrthng-315"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 6202,
+      "usd": 0.0109537,
+      "summary": "answered; facts 7/7; sources in context 7/7; cited 7/7"
+    },
+    {
+      "id": "resume-03",
+      "corpus": "resume",
+      "category": "answerable",
+      "question": "What role did he hold at Zonar Systems?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "He was Team Lead for EVIR Web and Inspection Builder at Zonar Systems, a full-time remote role from Jan 2021 to Aug 2026. He led the EVIR web application and owned it end to end for nearly five years.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Team Lead for EVIR Web and Inspection Builder",
+          "met": true
+        },
+        {
+          "fact": "EVIR Web",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 9,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "1/1",
+        "pages": [
+          "resume.pdf p2",
+          "resume.pdf p1"
+        ]
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 2670,
+          "output_tokens": 17,
+          "stop_reason": "end_turn",
+          "ms": 1515,
+          "reply": "{\"ranked\":[1,0,3,6]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3121,
+          "output_tokens": 140,
+          "stop_reason": "end_turn",
+          "ms": 1417,
+          "reply": "{\"answer\":\"He was Team Lead for EVIR Web and Inspection Builder at Zonar Systems, a full-time remote role from Jan 2021 to Aug 2026. He led the EVIR web application and owned it end to end for nearly five years.\",\"sources\":[\"ex95jxawxefhnxpa-ovxjrstz-6\",\"ex95jxawxefhnxpa-ovxjrstz-1\"]}",
+          "given": [
+            "ex95jxawxefhnxpa-ovxjrstz-1",
+            "ex95jxawxefhnxpa-ovxjrstz-6",
+            "ex95jxawxefhnxpa-ovxjrstz-7",
+            "ex95jxawxefhnxpa-ovxjrstz-2",
+            "ex95jxawxefhnxpa-ovxjrstz-8",
+            "ex95jxawxefhnxpa-ovxjrstz-5",
+            "ex95jxawxefhnxpa-ovxjrstz-0",
+            "ex95jxawxefhnxpa-ovxjrstz-3",
+            "ex95jxawxefhnxpa-ovxjrstz-4"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3493,
+      "usd": 0.007917500000000001,
+      "summary": "answered; facts 2/2; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "resume-04",
+      "corpus": "resume",
+      "category": "misleading",
+      "question": "What role did he hold at Microsoft?",
+      "expected": "correct_or_fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in your documents.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 9,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "any role or title at Microsoft"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 2668,
+          "output_tokens": 10,
+          "stop_reason": "end_turn",
+          "ms": 954,
+          "reply": "{\"ranked\":[]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3119,
+          "output_tokens": 67,
+          "stop_reason": "end_turn",
+          "ms": 2025,
+          "reply": "{\"answer\":\"The passages mention no role at Microsoft; the only reference is that a Legal Edition of his redaction app was sold through the Microsoft Store, which is not a job.\",\"sources\":[]}",
+          "given": [
+            "ex95jxawxefhnxpa-ovxjrstz-5",
+            "ex95jxawxefhnxpa-ovxjrstz-8",
+            "ex95jxawxefhnxpa-ovxjrstz-7",
+            "ex95jxawxefhnxpa-ovxjrstz-0",
+            "ex95jxawxefhnxpa-ovxjrstz-6",
+            "ex95jxawxefhnxpa-ovxjrstz-2",
+            "ex95jxawxefhnxpa-ovxjrstz-1",
+            "ex95jxawxefhnxpa-ovxjrstz-3",
+            "ex95jxawxefhnxpa-ovxjrstz-4"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3561,
+      "usd": 0.0071798,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-01",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What version of Node do I need before starting the book's examples?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "You need Node.js 20 or newer, along with npm. Check with node --version; if it prints something starting with v20. or higher, you have what the examples need.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Node.js 20 or newer is required",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p13"
+        ]
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6382,
+          "output_tokens": 19,
+          "stop_reason": "end_turn",
+          "ms": 1343,
+          "reply": "{\"ranked\":[0,1,7,2,6]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4009,
+          "output_tokens": 88,
+          "stop_reason": "end_turn",
+          "ms": 1283,
+          "reply": "{\"answer\":\"You need Node.js 20 or newer, along with npm. Check with node --version; if it prints something starting with v20. or higher, you have what the examples need.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-19\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-19",
+            "ylrfibwchzyoawaz-9mnl1vwm-25",
+            "ylrfibwchzyoawaz-9mnl1vwm-21",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-20",
+            "ylrfibwchzyoawaz-9mnl1vwm-493",
+            "ylrfibwchzyoawaz-9mnl1vwm-132",
+            "ylrfibwchzyoawaz-9mnl1vwm-452",
+            "ylrfibwchzyoawaz-9mnl1vwm-23",
+            "ylrfibwchzyoawaz-9mnl1vwm-456",
+            "ylrfibwchzyoawaz-9mnl1vwm-61",
+            "ylrfibwchzyoawaz-9mnl1vwm-334"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3473,
+      "usd": 0.009545699999999999,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-02",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "If an LLM keeps nothing between requests, how does a chat app seem to remember what I said earlier?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The model is stateless, so the apparent memory comes from the program on your side. It keeps an array of the messages so far, including the model's own replies, and resends the whole array with every request. The model answers each request from scratch using only what that request contains.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The program around the model keeps the message history in an array and resends it every request",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 11,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "2/2",
+        "pages": [
+          "book.pdf p26",
+          "book.pdf p9",
+          "book.pdf p41"
+        ]
+      },
+      "forbidden_claims": [
+        "the model stores memory between requests",
+        "model weights update during a conversation"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6182,
+          "output_tokens": 29,
+          "stop_reason": "end_turn",
+          "ms": 1574,
+          "reply": "{\"ranked\": [0, 3, 1, 5, 10, 18, 4]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3869,
+          "output_tokens": 163,
+          "stop_reason": "end_turn",
+          "ms": 1757,
+          "reply": "{\"answer\":\"The model is stateless, so the apparent memory comes from the program on your side. It keeps an array of the messages so far, including the model's own replies, and resends the whole array with every request. The model answers each request from scratch using only what that request contains.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-45\",\"ylrfibwchzyoawaz-9mnl1vwm-10\",\"ylrfibwchzyoawaz-9mnl1vwm-72\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-45",
+            "ylrfibwchzyoawaz-9mnl1vwm-46",
+            "ylrfibwchzyoawaz-9mnl1vwm-10",
+            "ylrfibwchzyoawaz-9mnl1vwm-109",
+            "ylrfibwchzyoawaz-9mnl1vwm-127",
+            "ylrfibwchzyoawaz-9mnl1vwm-123",
+            "ylrfibwchzyoawaz-9mnl1vwm-72",
+            "ylrfibwchzyoawaz-9mnl1vwm-43",
+            "ylrfibwchzyoawaz-9mnl1vwm-27",
+            "ylrfibwchzyoawaz-9mnl1vwm-389",
+            "ylrfibwchzyoawaz-9mnl1vwm-146",
+            "\n\"Earlier you judged a change to demo/src/slugify.ts and said:\",\n\"---\",\ngrade.text,\n\"---\",\n\n[ylrfibwchzyoawaz-9mnl1vwm-450"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4403,
+      "usd": 0.0100007,
+      "summary": "answered; facts 1/1; sources in context 2/2; cited 2/2"
+    },
+    {
+      "id": "book-03",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How many turns does the book's agent loop allow by default before it gives up?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The default iteration cap is 25",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/1",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "10 iterations",
+        "50 iterations",
+        "100 iterations"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6742,
+          "output_tokens": 17,
+          "stop_reason": "end_turn",
+          "ms": 1610,
+          "reply": "{\"ranked\":[4,5,1,8]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4185,
+          "output_tokens": 15,
+          "stop_reason": "end_turn",
+          "ms": 1251,
+          "reply": "{\"answer\":\"\",\"sources\":[]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-441",
+            "ylrfibwchzyoawaz-9mnl1vwm-98",
+            "ylrfibwchzyoawaz-9mnl1vwm-85",
+            "ylrfibwchzyoawaz-9mnl1vwm-104",
+            "ylrfibwchzyoawaz-9mnl1vwm-115",
+            "ylrfibwchzyoawaz-9mnl1vwm-86",
+            "ylrfibwchzyoawaz-9mnl1vwm-101",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-5",
+            "ylrfibwchzyoawaz-9mnl1vwm-110",
+            "ylrfibwchzyoawaz-9mnl1vwm-446",
+            "ylrfibwchzyoawaz-9mnl1vwm-120"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3676,
+      "usd": 0.0092027,
+      "summary": "fallback; facts 0/1; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-04",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Is it worth caching a prompt prefix that I'm only going to send once?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "No. Writing to the cache costs a quarter more than sending the same tokens uncached, so caching a prefix you use once is a small loss. It starts to pay from the second use, which in an agentic loop is iteration two, and it does not pay at all on a one-shot call.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Caching a prefix used once is a small loss; it pays from the second use",
+          "met": true
+        },
+        {
+          "fact": "Writing to the cache costs a quarter more than sending uncached",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "2/2",
+        "pages": [
+          "book.pdf p71"
+        ]
+      },
+      "forbidden_claims": [
+        "caching always saves money",
+        "caching is free to write"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6532,
+          "output_tokens": 21,
+          "stop_reason": "end_turn",
+          "ms": 1072,
+          "reply": "{\"ranked\":[0,4,5,6,9,2]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3890,
+          "output_tokens": 125,
+          "stop_reason": "end_turn",
+          "ms": 1476,
+          "reply": "{\"answer\":\"No. Writing to the cache costs a quarter more than sending the same tokens uncached, so caching a prefix you use once is a small loss. It starts to pay from the second use, which in an agentic loop is iteration two, and it does not pay at all on a one-shot call.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-125\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-125",
+            "ylrfibwchzyoawaz-9mnl1vwm-123",
+            "ylrfibwchzyoawaz-9mnl1vwm-124",
+            "ylrfibwchzyoawaz-9mnl1vwm-119",
+            "ylrfibwchzyoawaz-9mnl1vwm-445",
+            "ylrfibwchzyoawaz-9mnl1vwm-205",
+            "ylrfibwchzyoawaz-9mnl1vwm-402",
+            "ylrfibwchzyoawaz-9mnl1vwm-134",
+            "ylrfibwchzyoawaz-9mnl1vwm-135",
+            "ylrfibwchzyoawaz-9mnl1vwm-122",
+            "ylrfibwchzyoawaz-9mnl1vwm-136",
+            "ylrfibwchzyoawaz-9mnl1vwm-398"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3627,
+      "usd": 0.0096937,
+      "summary": "answered; facts 2/2; sources in context 2/2; cited 2/2"
+    },
+    {
+      "id": "book-05",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Roughly what fraction of the findings from the AI code reviewers will turn out to be wrong?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "ungrounded",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "False positives run around a quarter to a third of reported findings",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/1",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "half of findings",
+        "most findings are wrong",
+        "fewer than 5%"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6086,
+          "output_tokens": 19,
+          "stop_reason": "end_turn",
+          "ms": 1095,
+          "reply": "{\"ranked\":[0,2,9,10,5]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3959,
+          "output_tokens": 134,
+          "stop_reason": "end_turn",
+          "ms": 2027,
+          "reply": "{\"answer\":\"Expect roughly a quarter to a third of everything the reviewers report to be wrong. The book's own example is a false positive rate of a third, and in the Chapter 8 example about three of fifteen findings were wrong.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-392\",\"ylrfibwchzyoawaz-9mnl1vwm-208\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-208",
+            "ylrfibwchzyoawaz-9mnl1vwm-206",
+            "ylrfibwchzyoawaz-9mnl1vwm-215",
+            "ylrfibwchzyoawaz-9mnl1vwm-392",
+            "ylrfibwchzyoawaz-9mnl1vwm-216",
+            "ylrfibwchzyoawaz-9mnl1vwm-381",
+            "ylrfibwchzyoawaz-9mnl1vwm-209",
+            "ylrfibwchzyoawaz-9mnl1vwm-386",
+            "ylrfibwchzyoawaz-9mnl1vwm-157",
+            "ylrfibwchzyoawaz-9mnl1vwm-240",
+            "ylrfibwchzyoawaz-9mnl1vwm-219",
+            "ylrfibwchzyoawaz-9mnl1vwm-180"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3727,
+      "usd": 0.0098761,
+      "summary": "fallback; facts 0/1; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-06",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "In the book's worked verdict for the accents change, why wasn't the change cleared to ship?",
+      "expected": "answer",
+      "status": "fail",
+      "found": true,
+      "answer": "Two findings were accepted as real defects. AC3's empty case was not implemented, because the diff has no fallback branch, and `\"///\"` prints a blank line, which is the same defect seen in behavior. Findings 3 and 4 were rejected, so they did not hold it back.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The outcome was blocked because acceptance criterion AC3 (never empty) was unmet",
+          "met": true
+        },
+        {
+          "fact": "an escalation (unbounded input length) was still open",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p141"
+        ]
+      },
+      "forbidden_claims": [
+        "the outcome was ready",
+        "all four acceptance criteria were met"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6818,
+          "output_tokens": 33,
+          "stop_reason": "end_turn",
+          "ms": 1997,
+          "reply": "{\"ranked\":[2,3,5,9,10,13,14,15,16,17,18,22]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4404,
+          "output_tokens": 295,
+          "stop_reason": "end_turn",
+          "ms": 4039,
+          "reply": "{\"answer\":\"Two findings were accepted as real defects. AC3's empty case was not implemented, because the diff has no fallback branch, and `\\\"///\\\"` prints a blank line, which is the same defect seen in behavior. Findings 3 and 4 were rejected, so they did not hold it back.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-258\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-258",
+            "ylrfibwchzyoawaz-9mnl1vwm-242",
+            "ylrfibwchzyoawaz-9mnl1vwm-183",
+            "ylrfibwchzyoawaz-9mnl1vwm-306",
+            "ylrfibwchzyoawaz-9mnl1vwm-257",
+            "ylrfibwchzyoawaz-9mnl1vwm-256",
+            "ylrfibwchzyoawaz-9mnl1vwm-314",
+            "ylrfibwchzyoawaz-9mnl1vwm-100",
+            "ylrfibwchzyoawaz-9mnl1vwm-296",
+            "ylrfibwchzyoawaz-9mnl1vwm-490",
+            "ylrfibwchzyoawaz-9mnl1vwm-295",
+            "ylrfibwchzyoawaz-9mnl1vwm-215"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 7173,
+      "usd": 0.0124563,
+      "summary": "answered; facts 1/2; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-07",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What's the risk of leaving a focus marker on a single test in a test file?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "Marking one test with only makes the framework run that test and nothing else, yet the suite still reports green. One word in one file can stop forty tests from running while every dashboard stays the same colour. It is syntactically unremarkable and invisible in a summary, so it is the cheapest way to buy a passing suite.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Marking one test 'only' makes the runner execute just that test and nothing else",
+          "met": true
+        },
+        {
+          "fact": "The suite still reports green",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p155"
+        ]
+      },
+      "forbidden_claims": [
+        "only is harmless",
+        "it makes the whole suite fail"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6310,
+          "output_tokens": 19,
+          "stop_reason": "end_turn",
+          "ms": 1296,
+          "reply": "{\"ranked\":[0,12,6,2,19]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3925,
+          "output_tokens": 161,
+          "stop_reason": "end_turn",
+          "ms": 2308,
+          "reply": "{\"answer\":\"Marking one test with only makes the framework run that test and nothing else, yet the suite still reports green. One word in one file can stop forty tests from running while every dashboard stays the same colour. It is syntactically unremarkable and invisible in a summary, so it is the cheapest way to buy a passing suite.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-284\",\"ylrfibwchzyoawaz-9mnl1vwm-285\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-284",
+            "ylrfibwchzyoawaz-9mnl1vwm-285",
+            "ylrfibwchzyoawaz-9mnl1vwm-275",
+            "ylrfibwchzyoawaz-9mnl1vwm-279",
+            "ylrfibwchzyoawaz-9mnl1vwm-479",
+            "ylrfibwchzyoawaz-9mnl1vwm-209",
+            "ylrfibwchzyoawaz-9mnl1vwm-296",
+            "ylrfibwchzyoawaz-9mnl1vwm-478",
+            "ylrfibwchzyoawaz-9mnl1vwm-286",
+            "ylrfibwchzyoawaz-9mnl1vwm-259",
+            "ylrfibwchzyoawaz-9mnl1vwm-278",
+            "ylrfibwchzyoawaz-9mnl1vwm-319"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4187,
+      "usd": 0.0101005,
+      "summary": "answered; facts 2/2; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-08",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How many agents can a single run of the packaged quorum pipeline use at most?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "A single run of the packaged pipeline can use up to thirteen agents. Each one receives the diff and the plan, and several of them reason at length, so a large change can cost noticeably more.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Up to thirteen agents",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p182"
+        ]
+      },
+      "forbidden_claims": [
+        "six agents",
+        "twenty agents"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6607,
+          "output_tokens": 17,
+          "stop_reason": "end_turn",
+          "ms": 905,
+          "reply": "{\"ranked\":[12,8,1,7]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4144,
+          "output_tokens": 98,
+          "stop_reason": "end_turn",
+          "ms": 1969,
+          "reply": "{\"answer\":\"A single run of the packaged pipeline can use up to thirteen agents. Each one receives the diff and the plan, and several of them reason at length, so a large change can cost noticeably more.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-337\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-239",
+            "ylrfibwchzyoawaz-9mnl1vwm-333",
+            "ylrfibwchzyoawaz-9mnl1vwm-332",
+            "ylrfibwchzyoawaz-9mnl1vwm-367",
+            "ylrfibwchzyoawaz-9mnl1vwm-363",
+            "ylrfibwchzyoawaz-9mnl1vwm-365",
+            "ylrfibwchzyoawaz-9mnl1vwm-322",
+            "ylrfibwchzyoawaz-9mnl1vwm-343",
+            "ylrfibwchzyoawaz-9mnl1vwm-364",
+            "ylrfibwchzyoawaz-9mnl1vwm-341",
+            "ylrfibwchzyoawaz-9mnl1vwm-337",
+            "ylrfibwchzyoawaz-9mnl1vwm-362"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3821,
+      "usd": 0.0099372,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-09",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What exit code does a PreToolUse hook return to block a tool call?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "A PreToolUse hook exits with code 2 to block the tool call. The call does not happen, and whatever the hook wrote to standard error goes back to the model as the result. Exit code 0 means proceed, and any other exit code is reported as a broken hook and the call proceeds.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Exit code 2 refuses the call; zero proceeds",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p191",
+          "book.pdf p210"
+        ]
+      },
+      "forbidden_claims": [
+        "exit code 1 blocks",
+        "exit code 0 blocks"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6585,
+          "output_tokens": 21,
+          "stop_reason": "end_turn",
+          "ms": 1349,
+          "reply": "{\"ranked\":[1,2,3,5,0,4]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3857,
+          "output_tokens": 179,
+          "stop_reason": "end_turn",
+          "ms": 2857,
+          "reply": "{\"answer\":\"A PreToolUse hook exits with code 2 to block the tool call. The call does not happen, and whatever the hook wrote to standard error goes back to the model as the result. Exit code 0 means proceed, and any other exit code is reported as a broken hook and the call proceeds.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-356\",\"ylrfibwchzyoawaz-9mnl1vwm-357\",\"ylrfibwchzyoawaz-9mnl1vwm-394\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-313",
+            "ylrfibwchzyoawaz-9mnl1vwm-357",
+            "ylrfibwchzyoawaz-9mnl1vwm-354",
+            "ylrfibwchzyoawaz-9mnl1vwm-356",
+            "ylrfibwchzyoawaz-9mnl1vwm-394",
+            "ylrfibwchzyoawaz-9mnl1vwm-355",
+            "ylrfibwchzyoawaz-9mnl1vwm-402",
+            "ylrfibwchzyoawaz-9mnl1vwm-310",
+            "ylrfibwchzyoawaz-9mnl1vwm-75",
+            "ylrfibwchzyoawaz-9mnl1vwm-497",
+            "ylrfibwchzyoawaz-9mnl1vwm-67",
+            "ylrfibwchzyoawaz-9mnl1vwm-440"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4770,
+      "usd": 0.010173,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-10",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How often does the author say a test you rely on turns out not to fail when you break the code?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The author says that roughly one time in five, in the author's experience, the test you most rely on does not go red when you break the code it guards.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Roughly one time in five",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p203"
+        ]
+      },
+      "forbidden_claims": [
+        "one in ten",
+        "half of the time"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6616,
+          "output_tokens": 19,
+          "stop_reason": "end_turn",
+          "ms": 1341,
+          "reply": "{\"ranked\":[5,0,3,12,14]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3997,
+          "output_tokens": 79,
+          "stop_reason": "end_turn",
+          "ms": 1641,
+          "reply": "{\"answer\":\"The author says that roughly one time in five, in the author's experience, the test you most rely on does not go red when you break the code it guards.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-379\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-379",
+            "ylrfibwchzyoawaz-9mnl1vwm-277",
+            "ylrfibwchzyoawaz-9mnl1vwm-286",
+            "ylrfibwchzyoawaz-9mnl1vwm-285",
+            "ylrfibwchzyoawaz-9mnl1vwm-292",
+            "ylrfibwchzyoawaz-9mnl1vwm-290",
+            "ylrfibwchzyoawaz-9mnl1vwm-378",
+            "ylrfibwchzyoawaz-9mnl1vwm-275",
+            "ylrfibwchzyoawaz-9mnl1vwm-270",
+            "ylrfibwchzyoawaz-9mnl1vwm-391",
+            "ylrfibwchzyoawaz-9mnl1vwm-160",
+            "ylrfibwchzyoawaz-9mnl1vwm-13"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3595,
+      "usd": 0.009455100000000001,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-11",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What's the catch with copying a shared checker script into every repo so CI can run it?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "A vendored copy is frozen on the day it was made. If you later improve the guard, every repo that copied the old version keeps enforcing the old rules while still reporting green. That is worse than having no checker, because the green tick reads as enforcement. The book suggests that a shared guard should check that its own copy matches the original and treat a mismatch as a violation.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The copy is frozen on the day it was made and goes stale",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p173"
+        ]
+      },
+      "forbidden_claims": [
+        "there is no downside",
+        "it updates automatically"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6395,
+          "output_tokens": 19,
+          "stop_reason": "end_turn",
+          "ms": 2421,
+          "reply": "{\"ranked\":[0,11,16,10,8]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3963,
+          "output_tokens": 176,
+          "stop_reason": "end_turn",
+          "ms": 2473,
+          "reply": "{\"answer\":\"A vendored copy is frozen on the day it was made. If you later improve the guard, every repo that copied the old version keeps enforcing the old rules while still reporting green. That is worse than having no checker, because the green tick reads as enforcement. The book suggests that a shared guard should check that its own copy matches the original and treat a mismatch as a violation.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-318\",\"ylrfibwchzyoawaz-9mnl1vwm-319\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-318",
+            "ylrfibwchzyoawaz-9mnl1vwm-366",
+            "ylrfibwchzyoawaz-9mnl1vwm-320",
+            "ylrfibwchzyoawaz-9mnl1vwm-319",
+            "ylrfibwchzyoawaz-9mnl1vwm-317",
+            "ylrfibwchzyoawaz-9mnl1vwm-334",
+            "ylrfibwchzyoawaz-9mnl1vwm-314",
+            "ylrfibwchzyoawaz-9mnl1vwm-365",
+            "ylrfibwchzyoawaz-9mnl1vwm-336",
+            "ylrfibwchzyoawaz-9mnl1vwm-339",
+            "ylrfibwchzyoawaz-9mnl1vwm-299",
+            "ylrfibwchzyoawaz-9mnl1vwm-341"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5346,
+      "usd": 0.010335,
+      "summary": "answered; facts 1/1; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-12",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How big is the finished workflow in total, in files and lines?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The finished workflow, everything under agentic/, is 14 TypeScript files and 1546 lines in total. Both numbers are counted from the appendix listings when the page is generated.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "14 TypeScript files",
+          "met": true
+        },
+        {
+          "fact": "1546 lines",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "2/2",
+        "pages": [
+          "book.pdf p221"
+        ]
+      },
+      "forbidden_claims": [
+        "nine files",
+        "a little over a thousand lines"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 7724,
+          "output_tokens": 29,
+          "stop_reason": "end_turn",
+          "ms": 1264,
+          "reply": "{\"ranked\":[0,3,10,8,1,2,4,9,14,19]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 5028,
+          "output_tokens": 97,
+          "stop_reason": "end_turn",
+          "ms": 1657,
+          "reply": "{\"answer\":\"The finished workflow, everything under agentic/, is 14 TypeScript files and 1546 lines in total. Both numbers are counted from the appendix listings when the page is generated.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-414\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-414",
+            "ylrfibwchzyoawaz-9mnl1vwm-418",
+            "ylrfibwchzyoawaz-9mnl1vwm-416",
+            "ylrfibwchzyoawaz-9mnl1vwm-322",
+            "ylrfibwchzyoawaz-9mnl1vwm-484",
+            "ylrfibwchzyoawaz-9mnl1vwm-437",
+            "ylrfibwchzyoawaz-9mnl1vwm-435",
+            "ylrfibwchzyoawaz-9mnl1vwm-474",
+            "ylrfibwchzyoawaz-9mnl1vwm-488",
+            "ylrfibwchzyoawaz-9mnl1vwm-480",
+            "ylrfibwchzyoawaz-9mnl1vwm-447",
+            "ylrfibwchzyoawaz-9mnl1vwm-472"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3596,
+      "usd": 0.0118129,
+      "summary": "answered; facts 2/2; sources in context 2/2; cited 2/2"
+    },
+    {
+      "id": "book-13",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What are the chapters of the book?",
+      "expected": "answer",
+      "status": "fail",
+      "found": true,
+      "answer": "The book has thirteen chapters, and the titles given are Chapter 4, What It Knows and Forgets; Chapter 5, Why It Lies to You; Chapter 6, Writing It Down First; Chapter 13, Inside a Plugin.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "1. Talking to a Model",
+          "met": false
+        },
+        {
+          "fact": "2. Giving the Model Hands",
+          "met": false
+        },
+        {
+          "fact": "3. The Loop",
+          "met": false
+        },
+        {
+          "fact": "4. What It Knows and Forgets",
+          "met": true
+        },
+        {
+          "fact": "5. Why It Lies to You",
+          "met": true
+        },
+        {
+          "fact": "6. Writing It Down First",
+          "met": true
+        },
+        {
+          "fact": "7. A Second Pair of Eyes",
+          "met": false
+        },
+        {
+          "fact": "8. Running the Thing",
+          "met": false
+        },
+        {
+          "fact": "9. Somebody Has to Decide",
+          "met": false
+        },
+        {
+          "fact": "10. Tests That Can Fail",
+          "met": false
+        },
+        {
+          "fact": "11. Rules a Prompt Can’t Hold",
+          "met": false
+        },
+        {
+          "fact": "12. From Yours to Shared",
+          "met": false
+        },
+        {
+          "fact": "13. Inside a Plugin",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/3",
+        "per_source": [
+          false,
+          false,
+          false
+        ]
+      },
+      "citations": {
+        "cited": 5,
+        "sources_supported": "0/3",
+        "pages": [
+          "book.pdf p202",
+          "book.pdf p65",
+          "book.pdf p79",
+          "book.pdf p91",
+          "book.pdf p185"
+        ]
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5687,
+          "output_tokens": 35,
+          "stop_reason": "end_turn",
+          "ms": 1263,
+          "reply": "{\"ranked\":[4,5,7,8,1,13,6,2,19,16,14,3,18]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3807,
+          "output_tokens": 616,
+          "stop_reason": "end_turn",
+          "ms": 4709,
+          "reply": "{\"answer\":\"The book has thirteen chapters, and the titles given are Chapter 4, What It Knows and Forgets; Chapter 5, Why It Lies to You; Chapter 6, Writing It Down First; Chapter 13, Inside a Plugin.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-378\",\"ylrfibwchzyoawaz-9mnl1vwm-114\",\"ylrfibwchzyoawaz-9mnl1vwm-139\",\"ylrfibwchzyoawaz-9mnl1vwm-162\",\"ylrfibwchzyoawaz-9mnl1vwm-343\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-139",
+            "ylrfibwchzyoawaz-9mnl1vwm-368",
+            "ylrfibwchzyoawaz-9mnl1vwm-137",
+            "ylrfibwchzyoawaz-9mnl1vwm-378",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-162",
+            "ylrfibwchzyoawaz-9mnl1vwm-160",
+            "ylrfibwchzyoawaz-9mnl1vwm-17",
+            "ylrfibwchzyoawaz-9mnl1vwm-343",
+            "ylrfibwchzyoawaz-9mnl1vwm-114",
+            "ylrfibwchzyoawaz-9mnl1vwm-25",
+            "ylrfibwchzyoawaz-9mnl1vwm-16"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 6934,
+      "usd": 0.0143602,
+      "summary": "answered; facts 4/13; sources in context 0/3; cited 0/3"
+    },
+    {
+      "id": "book-14",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Which review lenses does the book use?",
+      "expected": "answer",
+      "status": "fail",
+      "found": true,
+      "answer": "The book uses six lenses: five are built in Chapter 7, and a sixth arrives in Chapter 8 because it works completely differently. The lenses the passages name are: spec-fidelity; security.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "correctness",
+          "met": false
+        },
+        {
+          "fact": "spec-fidelity",
+          "met": true
+        },
+        {
+          "fact": "security",
+          "met": true
+        },
+        {
+          "fact": "simplicity",
+          "met": false
+        },
+        {
+          "fact": "test-quality",
+          "met": false
+        },
+        {
+          "fact": "behavior (the sixth lens, runs the program)",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/3",
+        "per_source": [
+          true,
+          false,
+          false
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/3",
+        "pages": [
+          "book.pdf p108",
+          "book.pdf p113",
+          "book.pdf p196"
+        ]
+      },
+      "forbidden_claims": [
+        "five lenses in total",
+        "seven lenses"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5643,
+          "output_tokens": 41,
+          "stop_reason": "end_turn",
+          "ms": 1279,
+          "reply": "{\"ranked\":[1,2,0,4,5,6,7,9,11,12,13,14,16,17,18,22]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3595,
+          "output_tokens": 607,
+          "stop_reason": "end_turn",
+          "ms": 5924,
+          "reply": "{\"answer\":\"The book uses six lenses: five are built in Chapter 7, and a sixth arrives in Chapter 8 because it works completely differently. The lenses the passages name are: spec-fidelity; security.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-193\",\"ylrfibwchzyoawaz-9mnl1vwm-203\",\"ylrfibwchzyoawaz-9mnl1vwm-368\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-193",
+            "ylrfibwchzyoawaz-9mnl1vwm-368",
+            "ylrfibwchzyoawaz-9mnl1vwm-364",
+            "ylrfibwchzyoawaz-9mnl1vwm-214",
+            "ylrfibwchzyoawaz-9mnl1vwm-195",
+            "ylrfibwchzyoawaz-9mnl1vwm-203",
+            "ylrfibwchzyoawaz-9mnl1vwm-201",
+            "ylrfibwchzyoawaz-9mnl1vwm-267",
+            "ylrfibwchzyoawaz-9mnl1vwm-206",
+            "ylrfibwchzyoawaz-9mnl1vwm-204",
+            "ylrfibwchzyoawaz-9mnl1vwm-202",
+            "ylrfibwchzyoawaz-9mnl1vwm-406"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 7773,
+      "usd": 0.013844799999999999,
+      "summary": "answered; facts 2/6; sources in context 1/3; cited 1/3"
+    },
+    {
+      "id": "book-15",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "At what levels can a rule be enforced, from weakest to strongest?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The weakest level is the prompt, a rule written as a sentence in a system prompt. Next is the hook, a program the tool itself runs, such as a git pre-commit hook, whose exit code the tool respects. The strongest level is the third one, which the passages point to as the CI job, though they do not describe it in full.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Layer one: the prompt (a request in the system prompt)",
+          "met": true
+        },
+        {
+          "fact": "Layer two: a hook (e.g. git pre-commit, run by the tool)",
+          "met": true
+        },
+        {
+          "fact": "Layer three: outside the machine, in CI with required checks",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/3",
+        "per_source": [
+          true,
+          true,
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "2/3",
+        "pages": [
+          "book.pdf p169",
+          "book.pdf p174"
+        ]
+      },
+      "forbidden_claims": [
+        "a prompt is enough to enforce rules",
+        "git hooks cannot be skipped"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6588,
+          "output_tokens": 57,
+          "stop_reason": "end_turn",
+          "ms": 1311,
+          "reply": "{\"ranked\":[2,0,1,3,4,5,6,7,8,11,12,13,15,16,17,19,21,22,23,10,9,14,18,20]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3912,
+          "output_tokens": 545,
+          "stop_reason": "end_turn",
+          "ms": 5153,
+          "reply": "{\"answer\":\"The weakest level is the prompt, a rule written as a sentence in a system prompt. Next is the hook, a program the tool itself runs, such as a git pre-commit hook, whose exit code the tool respects. The strongest level is the third one, which the passages point to as the CI job, though they do not describe it in full.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-310\",\"ylrfibwchzyoawaz-9mnl1vwm-320\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-310",
+            "ylrfibwchzyoawaz-9mnl1vwm-295",
+            "ylrfibwchzyoawaz-9mnl1vwm-297",
+            "ylrfibwchzyoawaz-9mnl1vwm-298",
+            "ylrfibwchzyoawaz-9mnl1vwm-293",
+            "ylrfibwchzyoawaz-9mnl1vwm-160",
+            "ylrfibwchzyoawaz-9mnl1vwm-296",
+            "ylrfibwchzyoawaz-9mnl1vwm-320",
+            "ylrfibwchzyoawaz-9mnl1vwm-289",
+            "ylrfibwchzyoawaz-9mnl1vwm-269",
+            "ylrfibwchzyoawaz-9mnl1vwm-248",
+            "ylrfibwchzyoawaz-9mnl1vwm-366"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 7214,
+      "usd": 0.0139613,
+      "summary": "answered; facts 3/3; sources in context 2/3; cited 2/3"
+    },
+    {
+      "id": "book-16",
+      "corpus": "book",
+      "category": "absent",
+      "question": "How does the book use LangChain to build its agent loop?",
+      "expected": "fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "uses LangChain",
+        "LangChain chains",
+        "LangChain agent executor"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6868,
+          "output_tokens": 27,
+          "stop_reason": "end_turn",
+          "ms": 1365,
+          "reply": "{\"ranked\":[1,3,2,12,14,22,20,8,6]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4042,
+          "output_tokens": 119,
+          "stop_reason": "end_turn",
+          "ms": 1692,
+          "reply": "{\"answer\":\"\",\"sources\":[]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-85",
+            "ylrfibwchzyoawaz-9mnl1vwm-101",
+            "ylrfibwchzyoawaz-9mnl1vwm-8",
+            "ylrfibwchzyoawaz-9mnl1vwm-86",
+            "ylrfibwchzyoawaz-9mnl1vwm-109",
+            "ylrfibwchzyoawaz-9mnl1vwm-349",
+            "ylrfibwchzyoawaz-9mnl1vwm-7",
+            "ylrfibwchzyoawaz-9mnl1vwm-5",
+            "ylrfibwchzyoawaz-9mnl1vwm-385",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-16",
+            "ylrfibwchzyoawaz-9mnl1vwm-323"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3714,
+      "usd": 0.009974299999999998,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-17",
+      "corpus": "book",
+      "category": "absent",
+      "question": "Does the book show how to fine-tune a model on my own codebase?",
+      "expected": "fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "fine-tune the model",
+        "fine-tuning",
+        "training data set"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6088,
+          "output_tokens": 10,
+          "stop_reason": "end_turn",
+          "ms": 866,
+          "reply": "{\"ranked\":[]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3904,
+          "output_tokens": 131,
+          "stop_reason": "end_turn",
+          "ms": 1782,
+          "reply": "{\"answer\":\"\",\"sources\":[]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-25",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-405",
+            "ylrfibwchzyoawaz-9mnl1vwm-55",
+            "ylrfibwchzyoawaz-9mnl1vwm-327",
+            "ylrfibwchzyoawaz-9mnl1vwm-157",
+            "ylrfibwchzyoawaz-9mnl1vwm-41",
+            "ylrfibwchzyoawaz-9mnl1vwm-54",
+            "ylrfibwchzyoawaz-9mnl1vwm-4",
+            "ylrfibwchzyoawaz-9mnl1vwm-148",
+            "ylrfibwchzyoawaz-9mnl1vwm-132",
+            "ylrfibwchzyoawaz-9mnl1vwm-139"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3749,
+      "usd": 0.009731799999999999,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-18",
+      "corpus": "book",
+      "category": "absent",
+      "question": "How does the book say to deploy the pipeline to Kubernetes with Docker?",
+      "expected": "fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "Docker image",
+        "Kubernetes deployment",
+        "kubectl",
+        "Helm chart"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6406,
+          "output_tokens": 21,
+          "stop_reason": "end_turn",
+          "ms": 1021,
+          "reply": "{\"ranked\":[8,7,4,5,12,3]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4180,
+          "output_tokens": 15,
+          "stop_reason": "end_turn",
+          "ms": 1263,
+          "reply": "{\"answer\":\"\",\"sources\":[]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-363",
+            "ylrfibwchzyoawaz-9mnl1vwm-343",
+            "ylrfibwchzyoawaz-9mnl1vwm-332",
+            "ylrfibwchzyoawaz-9mnl1vwm-372",
+            "ylrfibwchzyoawaz-9mnl1vwm-341",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-322",
+            "ylrfibwchzyoawaz-9mnl1vwm-15",
+            "ylrfibwchzyoawaz-9mnl1vwm-373",
+            "ylrfibwchzyoawaz-9mnl1vwm-323",
+            "ylrfibwchzyoawaz-9mnl1vwm-367",
+            "ylrfibwchzyoawaz-9mnl1vwm-182"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3080,
+      "usd": 0.0091611,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-19",
+      "corpus": "book",
+      "category": "misleading",
+      "question": "Why does the book recommend having the model grade its own work as the main quality check?",
+      "expected": "correct_or_fallback",
+      "status": "review",
+      "found": true,
+      "answer": "The book recommends the opposite. Its rule is that nothing grades its own work, because a grader whose only input is the thing being graded is a text generator with a strong prior towards approval. A model asked whether its own work is correct will usually say yes, so the book relies on checks whose outcome does not depend on the model's opinion of its own output.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The book says nothing grades its own work; self-grading fails",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/2",
+        "pages": [
+          "book.pdf p84",
+          "book.pdf p89",
+          "book.pdf p10"
+        ]
+      },
+      "forbidden_claims": [
+        "the book recommends self-grading",
+        "the model should grade its own work",
+        "self-grading is the main check"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5867,
+          "output_tokens": 38,
+          "stop_reason": "end_turn",
+          "ms": 1387,
+          "reply": "{\"ranked\": [4, 1, 0, 2, 9, 10, 8, 7, 5, 3]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3818,
+          "output_tokens": 438,
+          "stop_reason": "end_turn",
+          "ms": 5237,
+          "reply": "{\"answer\":\"The book recommends the opposite. Its rule is that nothing grades its own work, because a grader whose only input is the thing being graded is a text generator with a strong prior towards approval. A model asked whether its own work is correct will usually say yes, so the book relies on checks whose outcome does not depend on the model's opinion of its own output.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-150\",\"ylrfibwchzyoawaz-9mnl1vwm-159\",\"ylrfibwchzyoawaz-9mnl1vwm-14\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-150",
+            "ylrfibwchzyoawaz-9mnl1vwm-148",
+            "ylrfibwchzyoawaz-9mnl1vwm-157",
+            "ylrfibwchzyoawaz-9mnl1vwm-377",
+            "ylrfibwchzyoawaz-9mnl1vwm-13",
+            "ylrfibwchzyoawaz-9mnl1vwm-159",
+            "ylrfibwchzyoawaz-9mnl1vwm-266",
+            "ylrfibwchzyoawaz-9mnl1vwm-163",
+            "ylrfibwchzyoawaz-9mnl1vwm-14",
+            "ylrfibwchzyoawaz-9mnl1vwm-158",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-161"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 7560,
+      "usd": 0.012621700000000001,
+      "summary": "answered; facts 1/1; sources in context 2/2; cited 1/2"
+    },
+    {
+      "id": "book-20",
+      "corpus": "book",
+      "category": "misleading",
+      "question": "Why does the book say temperature 0 makes the model fully deterministic?",
+      "expected": "correct_or_fallback",
+      "status": "review",
+      "found": true,
+      "answer": "The book does not say that. It says temperature 0 makes only the selection rule deterministic, because the most likely candidate is taken every time, but it does not make the model deterministic. Identical requests at temperature 0 can still produce different text, because of floating-point arithmetic and server-side batching outside your control.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Temperature 0 does not make the model deterministic; identical requests can still differ",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p28",
+          "book.pdf p217",
+          "book.pdf p27"
+        ]
+      },
+      "forbidden_claims": [
+        "temperature 0 makes the model deterministic",
+        "temperature zero guarantees identical output"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6000,
+          "output_tokens": 19,
+          "stop_reason": "end_turn",
+          "ms": 938,
+          "reply": "{\"ranked\":[1,0,13,5,8]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3967,
+          "output_tokens": 185,
+          "stop_reason": "end_turn",
+          "ms": 2308,
+          "reply": "{\"answer\":\"The book does not say that. It says temperature 0 makes only the selection rule deterministic, because the most likely candidate is taken every time, but it does not make the model deterministic. Identical requests at temperature 0 can still produce different text, because of floating-point arithmetic and server-side batching outside your control.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-49\",\"ylrfibwchzyoawaz-9mnl1vwm-408\",\"ylrfibwchzyoawaz-9mnl1vwm-48\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-408",
+            "ylrfibwchzyoawaz-9mnl1vwm-49",
+            "ylrfibwchzyoawaz-9mnl1vwm-47",
+            "ylrfibwchzyoawaz-9mnl1vwm-154",
+            "ylrfibwchzyoawaz-9mnl1vwm-161",
+            "ylrfibwchzyoawaz-9mnl1vwm-48",
+            "ylrfibwchzyoawaz-9mnl1vwm-407",
+            "ylrfibwchzyoawaz-9mnl1vwm-223",
+            "ylrfibwchzyoawaz-9mnl1vwm-25",
+            "ylrfibwchzyoawaz-9mnl1vwm-13",
+            "ylrfibwchzyoawaz-9mnl1vwm-287",
+            "ylrfibwchzyoawaz-9mnl1vwm-132"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3946,
+      "usd": 0.0103935,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-21",
+      "corpus": "book",
+      "category": "misleading",
+      "question": "Why does the book say a twenty-round agent loop costs about twenty times a single request?",
+      "expected": "correct_or_fallback",
+      "status": "review",
+      "found": true,
+      "answer": "The book does not say that. It says a twenty-round loop does not cost twenty times one request, and costs closer to two hundred. The reason is that you send the entire conversation every time, so the transcript grows with each round. Chapter 4 adds that a twenty-turn run over a transcript ending at 40,000 tokens sends roughly 400,000 input tokens, because the average turn carries half the final transcript, so cost is quadratic in turn count.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "It does not cost twenty times; closer to two hundred (cost grows roughly quadratically)",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p22",
+          "book.pdf p66"
+        ]
+      },
+      "forbidden_claims": [
+        "costs twenty times",
+        "cost is linear in rounds",
+        "20x a single request"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6495,
+          "output_tokens": 17,
+          "stop_reason": "end_turn",
+          "ms": 1375,
+          "reply": "{\"ranked\":[0,1,4,8]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4169,
+          "output_tokens": 396,
+          "stop_reason": "end_turn",
+          "ms": 3176,
+          "reply": "{\"answer\":\"The book does not say that. It says a twenty-round loop does not cost twenty times one request, and costs closer to two hundred. The reason is that you send the entire conversation every time, so the transcript grows with each round. Chapter 4 adds that a twenty-turn run over a transcript ending at 40,000 tokens sends roughly 400,000 input tokens, because the average turn carries half the final transcript, so cost is quadratic in turn count.\",\"sources\":[\"ylrfibwchzyoawaz-9mnl1vwm-38\",\"ylrfibwchzyoawaz-9mnl1vwm-115\"]}",
+          "given": [
+            "ylrfibwchzyoawaz-9mnl1vwm-38",
+            "ylrfibwchzyoawaz-9mnl1vwm-115",
+            "ylrfibwchzyoawaz-9mnl1vwm-114",
+            "ylrfibwchzyoawaz-9mnl1vwm-135",
+            "ylrfibwchzyoawaz-9mnl1vwm-101",
+            "ylrfibwchzyoawaz-9mnl1vwm-9",
+            "ylrfibwchzyoawaz-9mnl1vwm-337",
+            "ylrfibwchzyoawaz-9mnl1vwm-110",
+            "ylrfibwchzyoawaz-9mnl1vwm-157",
+            "ylrfibwchzyoawaz-9mnl1vwm-104",
+            "ylrfibwchzyoawaz-9mnl1vwm-125",
+            "ylrfibwchzyoawaz-9mnl1vwm-5"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5151,
+      "usd": 0.012956,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    }
+  ]
+}

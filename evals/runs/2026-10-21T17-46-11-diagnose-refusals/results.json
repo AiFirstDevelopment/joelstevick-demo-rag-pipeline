@@ -1,0 +1,231 @@
+{
+  "meta": {
+    "run": "2026-10-21T17-46-11-diagnose-refusals",
+    "label": "diagnose-refusals",
+    "at": "2026-10-21T17:49:30.509Z",
+    "git": "3e8d007+uncommitted",
+    "cases_hash": "9a0be71ce0c8",
+    "corpus": {
+      "book.pdf": "4540e4b48945"
+    },
+    "answer_model": "claude-sonnet-5-5",
+    "rerank_model": "claude-haiku-5-5",
+    "embedding_model": "@cf/baai/bge-m3",
+    "usd": 0.0233,
+    "budget": 2,
+    "ledger_total_usd": 0.2774
+  },
+  "results": [
+    {
+      "id": "book-13",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What are the chapters of the book?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "overlong",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "1. Talking to a Model",
+          "met": false
+        },
+        {
+          "fact": "2. Giving the Model Hands",
+          "met": false
+        },
+        {
+          "fact": "3. The Loop",
+          "met": false
+        },
+        {
+          "fact": "4. What It Knows and Forgets",
+          "met": false
+        },
+        {
+          "fact": "5. Why It Lies to You",
+          "met": false
+        },
+        {
+          "fact": "6. Writing It Down First",
+          "met": false
+        },
+        {
+          "fact": "7. A Second Pair of Eyes",
+          "met": false
+        },
+        {
+          "fact": "8. Running the Thing",
+          "met": false
+        },
+        {
+          "fact": "9. Somebody Has to Decide",
+          "met": false
+        },
+        {
+          "fact": "10. Tests That Can Fail",
+          "met": false
+        },
+        {
+          "fact": "11. Rules a Prompt Can’t Hold",
+          "met": false
+        },
+        {
+          "fact": "12. From Yours to Shared",
+          "met": false
+        },
+        {
+          "fact": "13. Inside a Plugin",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "3/3",
+        "per_source": [
+          true,
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/3",
+        "pages": []
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5688,
+          "output_tokens": 141,
+          "stop_reason": "end_turn",
+          "ms": 2939,
+          "reply": "{\"ranked\": [18]}"
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3319,
+          "output_tokens": 238,
+          "stop_reason": "end_turn",
+          "ms": 2132,
+          "reply": "{\"answer\":\"Introduction; 1. Talking to a Model; 2. Giving the Model Hands; 3. The Loop; 4. What It Knows and Forgets; 5. Why It Lies to You; 6. Writing It Down First; 7. A Second Pair of Eyes; 8. Running the Thing; 9. Somebody Has to Decide; 10. Tests That Can Fail; 11. Rules a Prompt Can’t Hold; 12. From Yours to Shared; 13. Inside a Plugin; Conclusion; Appendix A: Glossary; Appendix B: The Finished Workflow\",\"sources\":[\"tj3ezsya2gdftwls-f74jeegk-4\"]}",
+          "given": [
+            "tj3ezsya2gdftwls-f74jeegk-4",
+            "tj3ezsya2gdftwls-f74jeegk-18",
+            "tj3ezsya2gdftwls-f74jeegk-9",
+            "tj3ezsya2gdftwls-f74jeegk-17",
+            "tj3ezsya2gdftwls-f74jeegk-16",
+            "tj3ezsya2gdftwls-f74jeegk-139",
+            "tj3ezsya2gdftwls-f74jeegk-368",
+            "tj3ezsya2gdftwls-f74jeegk-160",
+            "tj3ezsya2gdftwls-f74jeegk-137",
+            "tj3ezsya2gdftwls-f74jeegk-378",
+            "tj3ezsya2gdftwls-f74jeegk-406",
+            "tj3ezsya2gdftwls-f74jeegk-87"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5743,
+      "usd": 0.0096573,
+      "summary": "fallback; facts 0/13; sources in context 3/3; cited 0/3"
+    },
+    {
+      "id": "book-14",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Which review lenses does the book use?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "ungrounded",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "correctness",
+          "met": false
+        },
+        {
+          "fact": "spec-fidelity",
+          "met": false
+        },
+        {
+          "fact": "security",
+          "met": false
+        },
+        {
+          "fact": "simplicity",
+          "met": false
+        },
+        {
+          "fact": "test-quality",
+          "met": false
+        },
+        {
+          "fact": "behavior (the sixth lens, runs the program)",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/3",
+        "per_source": [
+          true,
+          false,
+          false
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/3",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "five lenses in total",
+        "seven lenses"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5644,
+          "output_tokens": 256,
+          "stop_reason": "max_tokens",
+          "ms": 2137,
+          "reply": ""
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3486,
+          "output_tokens": 598,
+          "stop_reason": "end_turn",
+          "ms": 5621,
+          "reply": "{\"answer\":\"The book uses six lenses: five static lenses built in Chapter 7 and a sixth, the behavior lens, added in Chapter 8 because it works differently. The lenses the passages name are spec-fidelity; security; behavior.\",\"sources\":[\"tj3ezsya2gdftwls-f74jeegk-193\",\"tj3ezsya2gdftwls-f74jeegk-203\",\"tj3ezsya2gdftwls-f74jeegk-237\"]}",
+          "given": [
+            "tj3ezsya2gdftwls-f74jeegk-364",
+            "tj3ezsya2gdftwls-f74jeegk-193",
+            "tj3ezsya2gdftwls-f74jeegk-368",
+            "tj3ezsya2gdftwls-f74jeegk-462",
+            "tj3ezsya2gdftwls-f74jeegk-214",
+            "tj3ezsya2gdftwls-f74jeegk-195",
+            "tj3ezsya2gdftwls-f74jeegk-203",
+            "tj3ezsya2gdftwls-f74jeegk-201",
+            "tj3ezsya2gdftwls-f74jeegk-237",
+            "tj3ezsya2gdftwls-f74jeegk-267",
+            "tj3ezsya2gdftwls-f74jeegk-217",
+            "tj3ezsya2gdftwls-f74jeegk-206"
+          ]
+        }
+      ],
+      "errors": [
+        "claude-haiku-5-5: max_tokens"
+      ],
+      "ms": 8301,
+      "usd": 0.0136444,
+      "summary": "fallback; facts 0/6; sources in context 1/3; cited 0/3; claude-haiku-5-5: max_tokens"
+    }
+  ]
+}

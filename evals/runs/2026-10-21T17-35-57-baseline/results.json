@@ -1,0 +1,1903 @@
+{
+  "meta": {
+    "run": "2026-10-21T17-35-57-baseline",
+    "label": "baseline",
+    "at": "2026-10-21T17:45:38.264Z",
+    "git": "3e8d007+uncommitted",
+    "cases_hash": "9a0be71ce0c8",
+    "corpus": {
+      "resume.pdf": "ffc3664ef4ad",
+      "book.pdf": "4540e4b48945"
+    },
+    "answer_model": "claude-sonnet-5-5",
+    "rerank_model": "claude-haiku-5-5",
+    "embedding_model": "@cf/baai/bge-m3",
+    "usd": 0.2541,
+    "budget": 2,
+    "ledger_total_usd": 0.2541
+  },
+  "results": [
+    {
+      "id": "resume-01",
+      "corpus": "resume",
+      "category": "answerable",
+      "question": "what jobs has he held",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "Founder of Howard's Lantern (Aug 2026 - Present); Consultant, AI Products at Pilot & Pixel (Jan 2024 - Present); Team Lead, EVIR Web and Inspection Builder at Zonar Systems (Jan 2021 - Aug 2026); Senior Software Engineer at Ic-1 (2020 - 2021); Senior Developer / Team Lead at US Mobilesoft (2004 - 2024); Software Architect at Alexus (1997 - 2004); Software Engineer at Cisco Systems / Digital (1992 - 1996).",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Founder at Howard's Lantern",
+          "met": true
+        },
+        {
+          "fact": "Consultant at Pilot & Pixel",
+          "met": true
+        },
+        {
+          "fact": "Team Lead at Zonar Systems",
+          "met": true
+        },
+        {
+          "fact": "Senior Developer / Team Lead at US Mobilesoft",
+          "met": true
+        },
+        {
+          "fact": "Senior Software Engineer at Ic-1",
+          "met": true
+        },
+        {
+          "fact": "Software Architect at Alexus",
+          "met": true
+        },
+        {
+          "fact": "Software Engineer at Cisco Systems / Digital",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 9,
+        "sources_in_context": "7/7",
+        "per_source": [
+          true,
+          true,
+          true,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 5,
+        "sources_supported": "7/7",
+        "pages": [
+          "resume.pdf p1",
+          "resume.pdf p2"
+        ]
+      },
+      "forbidden_claims": [
+        "the passages do not list his job history"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 2663,
+          "output_tokens": 28,
+          "stop_reason": "end_turn",
+          "ms": 2266
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3086,
+          "output_tokens": 320,
+          "stop_reason": "end_turn",
+          "ms": 2334,
+          "given": [
+            "xmoled0cxteosruw-7tuibosp-7",
+            "xmoled0cxteosruw-7tuibosp-2",
+            "xmoled0cxteosruw-7tuibosp-6",
+            "xmoled0cxteosruw-7tuibosp-5",
+            "xmoled0cxteosruw-7tuibosp-8",
+            "xmoled0cxteosruw-7tuibosp-0",
+            "xmoled0cxteosruw-7tuibosp-1",
+            "xmoled0cxteosruw-7tuibosp-3",
+            "xmoled0cxteosruw-7tuibosp-4"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5961,
+      "usd": 0.0096523,
+      "summary": "answered; facts 7/7; sources in context 7/7; cited 7/7"
+    },
+    {
+      "id": "resume-02",
+      "corpus": "both",
+      "category": "answerable",
+      "question": "what jobs has he held",
+      "expected": "answer",
+      "status": "fail",
+      "found": true,
+      "answer": "He has been a Senior Developer / Team Lead at US Mobilesoft (2004 - 2024); a Senior Software Engineer at Ic-1 (2020 - 2021); a Software Architect at Alexus (1997 - 2004); and a Software Engineer at Cisco Systems / Digital (1992 - 1996). He also co-authored The 25x Developer (Palabra Press, 2026), and one passage mentions replacing legacy Angular EVIR Web and Inspection Builder applications with React in 60 days.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Founder at Howard's Lantern",
+          "met": false
+        },
+        {
+          "fact": "Consultant at Pilot & Pixel",
+          "met": false
+        },
+        {
+          "fact": "Team Lead at Zonar Systems",
+          "met": false
+        },
+        {
+          "fact": "Senior Developer / Team Lead at US Mobilesoft",
+          "met": true
+        },
+        {
+          "fact": "Senior Software Engineer at Ic-1",
+          "met": true
+        },
+        {
+          "fact": "Software Architect at Alexus",
+          "met": true
+        },
+        {
+          "fact": "Software Engineer at Cisco Systems / Digital",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "4/7",
+        "per_source": [
+          false,
+          false,
+          false,
+          true,
+          true,
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "4/7",
+        "pages": [
+          "resume.pdf p2"
+        ]
+      },
+      "forbidden_claims": [
+        "the passages do not list his job history"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5233,
+          "output_tokens": 256,
+          "stop_reason": "max_tokens",
+          "ms": 2233
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 2905,
+          "output_tokens": 237,
+          "stop_reason": "end_turn",
+          "ms": 2456,
+          "given": [
+            "piiz57zx6a60xnqo-d33ecaga-57",
+            "piiz57zx6a60xnqo-d33ecaga-214",
+            "piiz57zx6a60xnqo-d33ecaga-370",
+            "piiz57zx6a60xnqo-d33ecaga-321",
+            "piiz57zx6a60xnqo-d33ecaga-315",
+            "piiz57zx6a60xnqo-d33ecaga-333",
+            "piiz57zx6a60xnqo-d33ecaga-284",
+            "piiz57zx6a60xnqo-7oo8egtb-8",
+            "piiz57zx6a60xnqo-d33ecaga-412",
+            "piiz57zx6a60xnqo-7oo8egtb-7",
+            "piiz57zx6a60xnqo-d33ecaga-46",
+            "piiz57zx6a60xnqo-d33ecaga-6"
+          ]
+        }
+      ],
+      "errors": [
+        "claude-haiku-5-5: max_tokens"
+      ],
+      "ms": 5300,
+      "usd": 0.0088313,
+      "summary": "answered; facts 4/7; sources in context 4/7; cited 4/7; claude-haiku-5-5: max_tokens"
+    },
+    {
+      "id": "resume-03",
+      "corpus": "resume",
+      "category": "answerable",
+      "question": "What role did he hold at Zonar Systems?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "He was Team Lead for EVIR Web and Inspection Builder at Zonar Systems, a full-time remote role from Jan 2021 to Aug 2026. He led the web application for EVIR, Zonar's verified electronic vehicle inspection.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Team Lead for EVIR Web and Inspection Builder",
+          "met": true
+        },
+        {
+          "fact": "EVIR Web",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 9,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "1/1",
+        "pages": [
+          "resume.pdf p2",
+          "resume.pdf p1"
+        ]
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 2671,
+          "output_tokens": 14,
+          "stop_reason": "end_turn",
+          "ms": 1537
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3094,
+          "output_tokens": 140,
+          "stop_reason": "end_turn",
+          "ms": 2150,
+          "given": [
+            "xmoled0cxteosruw-7tuibosp-6",
+            "xmoled0cxteosruw-7tuibosp-1",
+            "xmoled0cxteosruw-7tuibosp-8",
+            "xmoled0cxteosruw-7tuibosp-7",
+            "xmoled0cxteosruw-7tuibosp-5",
+            "xmoled0cxteosruw-7tuibosp-0",
+            "xmoled0cxteosruw-7tuibosp-2",
+            "xmoled0cxteosruw-7tuibosp-3",
+            "xmoled0cxteosruw-7tuibosp-4"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4275,
+      "usd": 0.0078621,
+      "summary": "answered; facts 2/2; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "resume-04",
+      "corpus": "resume",
+      "category": "misleading",
+      "question": "What role did he hold at Microsoft?",
+      "expected": "correct_or_fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in your documents.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 9,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "any role or title at Microsoft"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 2669,
+          "output_tokens": 127,
+          "stop_reason": "end_turn",
+          "ms": 1669
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3092,
+          "output_tokens": 15,
+          "stop_reason": "end_turn",
+          "ms": 2186,
+          "given": [
+            "xmoled0cxteosruw-7tuibosp-5",
+            "xmoled0cxteosruw-7tuibosp-8",
+            "xmoled0cxteosruw-7tuibosp-7",
+            "xmoled0cxteosruw-7tuibosp-0",
+            "xmoled0cxteosruw-7tuibosp-6",
+            "xmoled0cxteosruw-7tuibosp-2",
+            "xmoled0cxteosruw-7tuibosp-1",
+            "xmoled0cxteosruw-7tuibosp-3",
+            "xmoled0cxteosruw-7tuibosp-4"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4481,
+      "usd": 0.0066644,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-01",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What version of Node do I need before starting the book's examples?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "You need Node.js 20 or newer, along with npm. Check with node --version; if it prints something starting with v20. or higher, you have what the examples need.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Node.js 20 or newer is required",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p13"
+        ]
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6383,
+          "output_tokens": 22,
+          "stop_reason": "end_turn",
+          "ms": 2443
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4446,
+          "output_tokens": 88,
+          "stop_reason": "end_turn",
+          "ms": 1978,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-25",
+            "zuzalzvfwxexpzm8-t0xceuwc-21",
+            "zuzalzvfwxexpzm8-t0xceuwc-493",
+            "zuzalzvfwxexpzm8-t0xceuwc-315",
+            "zuzalzvfwxexpzm8-t0xceuwc-334",
+            "zuzalzvfwxexpzm8-t0xceuwc-406",
+            "zuzalzvfwxexpzm8-t0xceuwc-19",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-132",
+            "zuzalzvfwxexpzm8-t0xceuwc-452",
+            "zuzalzvfwxexpzm8-t0xceuwc-20",
+            "zuzalzvfwxexpzm8-t0xceuwc-23"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5093,
+      "usd": 0.0104213,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-02",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "If an LLM keeps nothing between requests, how does a chat app seem to remember what I said earlier?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The model itself is stateless: it keeps nothing between requests and answers each one using only what that request contains. The apparent memory comes from the program on the other side, which keeps an array of the conversation (including the model's own replies) and resends it with every request. That messages array is the only memory there is.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The program around the model keeps the message history in an array and resends it every request",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 10,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "2/2",
+        "pages": [
+          "book.pdf p26",
+          "book.pdf p25",
+          "book.pdf p41"
+        ]
+      },
+      "forbidden_claims": [
+        "the model stores memory between requests",
+        "model weights update during a conversation"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6183,
+          "output_tokens": 24,
+          "stop_reason": "end_turn",
+          "ms": 1485
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3895,
+          "output_tokens": 178,
+          "stop_reason": "end_turn",
+          "ms": 2415,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-45",
+            "zuzalzvfwxexpzm8-t0xceuwc-43",
+            "zuzalzvfwxexpzm8-t0xceuwc-46",
+            "zuzalzvfwxexpzm8-t0xceuwc-72",
+            "zuzalzvfwxexpzm8-t0xceuwc-109",
+            "zuzalzvfwxexpzm8-t0xceuwc-10",
+            "zuzalzvfwxexpzm8-t0xceuwc-127",
+            "zuzalzvfwxexpzm8-t0xceuwc-27",
+            "zuzalzvfwxexpzm8-t0xceuwc-389",
+            "zuzalzvfwxexpzm8-t0xceuwc-146",
+            "\n\"Earlier you judged a change to demo/src/slugify.ts and said:\",\n\"---\",\ngrade.text,\n\"---\",\n\n[zuzalzvfwxexpzm8-t0xceuwc-450",
+            "\n\"Earlier you judged a change to demo/src/slugify.ts and said:\",\n\"---\",\ngrade.text,\n\"---\",\n\n[zuzalzvfwxexpzm8-t0xceuwc-292"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4529,
+      "usd": 0.0102003,
+      "summary": "answered; facts 1/1; sources in context 2/2; cited 2/2"
+    },
+    {
+      "id": "book-03",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How many turns does the book's agent loop allow by default before it gives up?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The default iteration cap is 25",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/1",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "10 iterations",
+        "50 iterations",
+        "100 iterations"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6743,
+          "output_tokens": 256,
+          "stop_reason": "max_tokens",
+          "ms": 3062
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4185,
+          "output_tokens": 88,
+          "stop_reason": "end_turn",
+          "ms": 3792,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-115",
+            "zuzalzvfwxexpzm8-t0xceuwc-85",
+            "zuzalzvfwxexpzm8-t0xceuwc-86",
+            "zuzalzvfwxexpzm8-t0xceuwc-101",
+            "zuzalzvfwxexpzm8-t0xceuwc-441",
+            "zuzalzvfwxexpzm8-t0xceuwc-98",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-5",
+            "zuzalzvfwxexpzm8-t0xceuwc-104",
+            "zuzalzvfwxexpzm8-t0xceuwc-110",
+            "zuzalzvfwxexpzm8-t0xceuwc-446",
+            "zuzalzvfwxexpzm8-t0xceuwc-120"
+          ]
+        }
+      ],
+      "errors": [
+        "claude-haiku-5-5: max_tokens"
+      ],
+      "ms": 7624,
+      "usd": 0.0100523,
+      "summary": "fallback; facts 0/1; sources in context 0/1; cited 0/1; claude-haiku-5-5: max_tokens"
+    },
+    {
+      "id": "book-04",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Is it worth caching a prompt prefix that I'm only going to send once?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "No. Writing to the cache costs a quarter more than sending the same tokens uncached, so caching a prefix you use once is a small loss. It pays from the second use, and not at all on a one-shot call.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Caching a prefix used once is a small loss; it pays from the second use",
+          "met": true
+        },
+        {
+          "fact": "Writing to the cache costs a quarter more than sending uncached",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "2/2",
+        "pages": [
+          "book.pdf p71"
+        ]
+      },
+      "forbidden_claims": [
+        "caching always saves money",
+        "caching is free to write"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6533,
+          "output_tokens": 22,
+          "stop_reason": "end_turn",
+          "ms": 881
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3890,
+          "output_tokens": 104,
+          "stop_reason": "end_turn",
+          "ms": 1705,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-125",
+            "zuzalzvfwxexpzm8-t0xceuwc-123",
+            "zuzalzvfwxexpzm8-t0xceuwc-124",
+            "zuzalzvfwxexpzm8-t0xceuwc-205",
+            "zuzalzvfwxexpzm8-t0xceuwc-135",
+            "zuzalzvfwxexpzm8-t0xceuwc-119",
+            "zuzalzvfwxexpzm8-t0xceuwc-402",
+            "zuzalzvfwxexpzm8-t0xceuwc-134",
+            "zuzalzvfwxexpzm8-t0xceuwc-122",
+            "zuzalzvfwxexpzm8-t0xceuwc-445",
+            "zuzalzvfwxexpzm8-t0xceuwc-136",
+            "zuzalzvfwxexpzm8-t0xceuwc-398"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3192,
+      "usd": 0.0094843,
+      "summary": "answered; facts 2/2; sources in context 2/2; cited 2/2"
+    },
+    {
+      "id": "book-05",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Roughly what fraction of the findings from the AI code reviewers will turn out to be wrong?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "Roughly a quarter to a third of everything the reviewers report will be false positives. The book treats a rate of about a third as no reason to stop, only a reason not to let the reviewers act on findings themselves.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "False positives run around a quarter to a third of reported findings",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p209",
+          "book.pdf p115"
+        ]
+      },
+      "forbidden_claims": [
+        "half of findings",
+        "most findings are wrong",
+        "fewer than 5%"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6087,
+          "output_tokens": 244,
+          "stop_reason": "end_turn",
+          "ms": 1882
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3959,
+          "output_tokens": 130,
+          "stop_reason": "end_turn",
+          "ms": 2851,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-392",
+            "zuzalzvfwxexpzm8-t0xceuwc-208",
+            "zuzalzvfwxexpzm8-t0xceuwc-240",
+            "zuzalzvfwxexpzm8-t0xceuwc-206",
+            "zuzalzvfwxexpzm8-t0xceuwc-381",
+            "zuzalzvfwxexpzm8-t0xceuwc-209",
+            "zuzalzvfwxexpzm8-t0xceuwc-386",
+            "zuzalzvfwxexpzm8-t0xceuwc-216",
+            "zuzalzvfwxexpzm8-t0xceuwc-157",
+            "zuzalzvfwxexpzm8-t0xceuwc-219",
+            "zuzalzvfwxexpzm8-t0xceuwc-215",
+            "zuzalzvfwxexpzm8-t0xceuwc-180"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5382,
+      "usd": 0.009948700000000001,
+      "summary": "answered; facts 1/1; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-06",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "In the book's worked verdict for the accents change, why wasn't the change cleared to ship?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The verdict outcome was \"blocked\" because AC3 (never empty) was unmet: the behavior transcript showed `\"///\"` → `\"\"`, with no fallback branch in the diff. There was also an open escalation, that input length is unbounded and the plan does not say whether that is acceptable.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The outcome was blocked because acceptance criterion AC3 (never empty) was unmet",
+          "met": true
+        },
+        {
+          "fact": "an escalation (unbounded input length) was still open",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p142",
+          "book.pdf p141"
+        ]
+      },
+      "forbidden_claims": [
+        "the outcome was ready",
+        "all four acceptance criteria were met"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6819,
+          "output_tokens": 16,
+          "stop_reason": "end_turn",
+          "ms": 1125
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3962,
+          "output_tokens": 164,
+          "stop_reason": "end_turn",
+          "ms": 3133,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-258",
+            "zuzalzvfwxexpzm8-t0xceuwc-260",
+            "zuzalzvfwxexpzm8-t0xceuwc-242",
+            "zuzalzvfwxexpzm8-t0xceuwc-212",
+            "zuzalzvfwxexpzm8-t0xceuwc-203",
+            "zuzalzvfwxexpzm8-t0xceuwc-360",
+            "zuzalzvfwxexpzm8-t0xceuwc-183",
+            "zuzalzvfwxexpzm8-t0xceuwc-12",
+            "zuzalzvfwxexpzm8-t0xceuwc-247",
+            "zuzalzvfwxexpzm8-t0xceuwc-306",
+            "zuzalzvfwxexpzm8-t0xceuwc-257",
+            "zuzalzvfwxexpzm8-t0xceuwc-308"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 5001,
+      "usd": 0.0102539,
+      "summary": "answered; facts 2/2; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-07",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What's the risk of leaving a focus marker on a single test in a test file?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "Marking a single test with only makes the framework run that test and nothing else, yet the suite still reports green. One word in one file can stop forty tests from running while every dashboard stays the same colour. It is a one-word, syntactically unremarkable edit that is invisible in a summary, so it is the cheapest way to buy a passing suite.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Marking one test 'only' makes the runner execute just that test and nothing else",
+          "met": true
+        },
+        {
+          "fact": "The suite still reports green",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/1",
+        "per_source": [
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p155"
+        ]
+      },
+      "forbidden_claims": [
+        "only is harmless",
+        "it makes the whole suite fail"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6311,
+          "output_tokens": 20,
+          "stop_reason": "end_turn",
+          "ms": 1376
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3775,
+          "output_tokens": 170,
+          "stop_reason": "end_turn",
+          "ms": 1828,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-284",
+            "zuzalzvfwxexpzm8-t0xceuwc-285",
+            "zuzalzvfwxexpzm8-t0xceuwc-278",
+            "zuzalzvfwxexpzm8-t0xceuwc-286",
+            "zuzalzvfwxexpzm8-t0xceuwc-235",
+            "zuzalzvfwxexpzm8-t0xceuwc-209",
+            "zuzalzvfwxexpzm8-t0xceuwc-279",
+            "zuzalzvfwxexpzm8-t0xceuwc-296",
+            "zuzalzvfwxexpzm8-t0xceuwc-478",
+            "zuzalzvfwxexpzm8-t0xceuwc-275",
+            "zuzalzvfwxexpzm8-t0xceuwc-259",
+            "zuzalzvfwxexpzm8-t0xceuwc-319"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3759,
+      "usd": 0.0098911,
+      "summary": "answered; facts 2/2; sources in context 0/1; cited 0/1"
+    },
+    {
+      "id": "book-08",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How many agents can a single run of the packaged quorum pipeline use at most?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "A single run can use up to thirteen agents. Each one receives the diff and the plan, and several of them reason at length, which is why a run costs real money.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Up to thirteen agents",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p182"
+        ]
+      },
+      "forbidden_claims": [
+        "six agents",
+        "twenty agents"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6608,
+          "output_tokens": 169,
+          "stop_reason": "end_turn",
+          "ms": 1677
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4161,
+          "output_tokens": 86,
+          "stop_reason": "end_turn",
+          "ms": 1242,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-337",
+            "zuzalzvfwxexpzm8-t0xceuwc-367",
+            "zuzalzvfwxexpzm8-t0xceuwc-364",
+            "zuzalzvfwxexpzm8-t0xceuwc-363",
+            "zuzalzvfwxexpzm8-t0xceuwc-332",
+            "zuzalzvfwxexpzm8-t0xceuwc-365",
+            "zuzalzvfwxexpzm8-t0xceuwc-322",
+            "zuzalzvfwxexpzm8-t0xceuwc-343",
+            "zuzalzvfwxexpzm8-t0xceuwc-341",
+            "zuzalzvfwxexpzm8-t0xceuwc-333",
+            "zuzalzvfwxexpzm8-t0xceuwc-362",
+            "zuzalzvfwxexpzm8-t0xceuwc-101"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3984,
+      "usd": 0.0099273,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-09",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What exit code does a PreToolUse hook return to block a tool call?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "A PreToolUse hook returns exit code 2 to block the tool call. The call does not happen, and whatever the hook wrote to standard error goes back to the model as the result. Exit code 0 means proceed, and any other code is reported as a broken hook while the call proceeds.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Exit code 2 refuses the call; zero proceeds",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p191",
+          "book.pdf p210"
+        ]
+      },
+      "forbidden_claims": [
+        "exit code 1 blocks",
+        "exit code 0 blocks"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6586,
+          "output_tokens": 26,
+          "stop_reason": "end_turn",
+          "ms": 1015
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3861,
+          "output_tokens": 178,
+          "stop_reason": "end_turn",
+          "ms": 1967,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-357",
+            "zuzalzvfwxexpzm8-t0xceuwc-356",
+            "zuzalzvfwxexpzm8-t0xceuwc-313",
+            "zuzalzvfwxexpzm8-t0xceuwc-394",
+            "zuzalzvfwxexpzm8-t0xceuwc-354",
+            "zuzalzvfwxexpzm8-t0xceuwc-355",
+            "zuzalzvfwxexpzm8-t0xceuwc-440",
+            "zuzalzvfwxexpzm8-t0xceuwc-312",
+            "zuzalzvfwxexpzm8-t0xceuwc-402",
+            "zuzalzvfwxexpzm8-t0xceuwc-310",
+            "zuzalzvfwxexpzm8-t0xceuwc-75",
+            "zuzalzvfwxexpzm8-t0xceuwc-497"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3677,
+      "usd": 0.0101736,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-10",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How often does the author say a test you rely on turns out not to fail when you break the code?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The author says that roughly one time in five, in their experience, the test you most rely on does not go red when you break the code it guards.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Roughly one time in five",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p203"
+        ]
+      },
+      "forbidden_claims": [
+        "one in ten",
+        "half of the time"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6617,
+          "output_tokens": 233,
+          "stop_reason": "end_turn",
+          "ms": 3115
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4055,
+          "output_tokens": 77,
+          "stop_reason": "end_turn",
+          "ms": 2140,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-379",
+            "zuzalzvfwxexpzm8-t0xceuwc-277",
+            "zuzalzvfwxexpzm8-t0xceuwc-283",
+            "zuzalzvfwxexpzm8-t0xceuwc-284",
+            "zuzalzvfwxexpzm8-t0xceuwc-290",
+            "zuzalzvfwxexpzm8-t0xceuwc-378",
+            "zuzalzvfwxexpzm8-t0xceuwc-286",
+            "zuzalzvfwxexpzm8-t0xceuwc-275",
+            "zuzalzvfwxexpzm8-t0xceuwc-270",
+            "zuzalzvfwxexpzm8-t0xceuwc-391",
+            "zuzalzvfwxexpzm8-t0xceuwc-160",
+            "zuzalzvfwxexpzm8-t0xceuwc-13"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 6108,
+      "usd": 0.0096582,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-11",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What's the catch with copying a shared checker script into every repo so CI can run it?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "A vendored copy is frozen on the day it was made. If you later improve the guard, every repository that copied the old version keeps enforcing the old rules while still reporting green. A stale checker does more harm than an absent one, because the green tick reads as enforcement.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The copy is frozen on the day it was made and goes stale",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "0/1",
+        "pages": [
+          "book.pdf p173"
+        ]
+      },
+      "forbidden_claims": [
+        "there is no downside",
+        "it updates automatically"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6396,
+          "output_tokens": 20,
+          "stop_reason": "end_turn",
+          "ms": 918
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4005,
+          "output_tokens": 121,
+          "stop_reason": "end_turn",
+          "ms": 1732,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-318",
+            "zuzalzvfwxexpzm8-t0xceuwc-320",
+            "zuzalzvfwxexpzm8-t0xceuwc-319",
+            "zuzalzvfwxexpzm8-t0xceuwc-411",
+            "zuzalzvfwxexpzm8-t0xceuwc-317",
+            "zuzalzvfwxexpzm8-t0xceuwc-334",
+            "zuzalzvfwxexpzm8-t0xceuwc-314",
+            "zuzalzvfwxexpzm8-t0xceuwc-365",
+            "zuzalzvfwxexpzm8-t0xceuwc-336",
+            "zuzalzvfwxexpzm8-t0xceuwc-339",
+            "zuzalzvfwxexpzm8-t0xceuwc-299",
+            "zuzalzvfwxexpzm8-t0xceuwc-341"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3359,
+      "usd": 0.009869600000000001,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 0/1"
+    },
+    {
+      "id": "book-12",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "How big is the finished workflow in total, in files and lines?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "The finished workflow, everything under agentic/, is 14 TypeScript files and 1546 lines in total. Both numbers are counted from the listings when the appendix page is generated.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "14 TypeScript files",
+          "met": true
+        },
+        {
+          "fact": "1546 lines",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 1,
+        "sources_supported": "2/2",
+        "pages": [
+          "book.pdf p221"
+        ]
+      },
+      "forbidden_claims": [
+        "nine files",
+        "a little over a thousand lines"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 7725,
+          "output_tokens": 216,
+          "stop_reason": "end_turn",
+          "ms": 2026
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 5052,
+          "output_tokens": 97,
+          "stop_reason": "end_turn",
+          "ms": 1546,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-414",
+            "zuzalzvfwxexpzm8-t0xceuwc-416",
+            "zuzalzvfwxexpzm8-t0xceuwc-484",
+            "zuzalzvfwxexpzm8-t0xceuwc-437",
+            "zuzalzvfwxexpzm8-t0xceuwc-418",
+            "zuzalzvfwxexpzm8-t0xceuwc-435",
+            "zuzalzvfwxexpzm8-t0xceuwc-447",
+            "zuzalzvfwxexpzm8-t0xceuwc-472",
+            "zuzalzvfwxexpzm8-t0xceuwc-465",
+            "zuzalzvfwxexpzm8-t0xceuwc-322",
+            "zuzalzvfwxexpzm8-t0xceuwc-474",
+            "zuzalzvfwxexpzm8-t0xceuwc-426"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4236,
+      "usd": 0.0119545,
+      "summary": "answered; facts 2/2; sources in context 2/2; cited 2/2"
+    },
+    {
+      "id": "book-13",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "What are the chapters of the book?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "overlong",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "1. Talking to a Model",
+          "met": false
+        },
+        {
+          "fact": "2. Giving the Model Hands",
+          "met": false
+        },
+        {
+          "fact": "3. The Loop",
+          "met": false
+        },
+        {
+          "fact": "4. What It Knows and Forgets",
+          "met": false
+        },
+        {
+          "fact": "5. Why It Lies to You",
+          "met": false
+        },
+        {
+          "fact": "6. Writing It Down First",
+          "met": false
+        },
+        {
+          "fact": "7. A Second Pair of Eyes",
+          "met": false
+        },
+        {
+          "fact": "8. Running the Thing",
+          "met": false
+        },
+        {
+          "fact": "9. Somebody Has to Decide",
+          "met": false
+        },
+        {
+          "fact": "10. Tests That Can Fail",
+          "met": false
+        },
+        {
+          "fact": "11. Rules a Prompt Can’t Hold",
+          "met": false
+        },
+        {
+          "fact": "12. From Yours to Shared",
+          "met": false
+        },
+        {
+          "fact": "13. Inside a Plugin",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "3/3",
+        "per_source": [
+          true,
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/3",
+        "pages": []
+      },
+      "forbidden_claims": [],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5688,
+          "output_tokens": 227,
+          "stop_reason": "end_turn",
+          "ms": 1781
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3343,
+          "output_tokens": 240,
+          "stop_reason": "end_turn",
+          "ms": 2155,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-4",
+            "zuzalzvfwxexpzm8-t0xceuwc-16",
+            "zuzalzvfwxexpzm8-t0xceuwc-18",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-17",
+            "zuzalzvfwxexpzm8-t0xceuwc-139",
+            "zuzalzvfwxexpzm8-t0xceuwc-368",
+            "zuzalzvfwxexpzm8-t0xceuwc-160",
+            "zuzalzvfwxexpzm8-t0xceuwc-137",
+            "zuzalzvfwxexpzm8-t0xceuwc-378",
+            "zuzalzvfwxexpzm8-t0xceuwc-406",
+            "zuzalzvfwxexpzm8-t0xceuwc-87"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4890,
+      "usd": 0.0097683,
+      "summary": "fallback; facts 0/13; sources in context 3/3; cited 0/3"
+    },
+    {
+      "id": "book-14",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "Which review lenses does the book use?",
+      "expected": "answer",
+      "status": "fail",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "ungrounded",
+      "http": 200,
+      "facts": [
+        {
+          "fact": "correctness",
+          "met": false
+        },
+        {
+          "fact": "spec-fidelity",
+          "met": false
+        },
+        {
+          "fact": "security",
+          "met": false
+        },
+        {
+          "fact": "simplicity",
+          "met": false
+        },
+        {
+          "fact": "test-quality",
+          "met": false
+        },
+        {
+          "fact": "behavior (the sixth lens, runs the program)",
+          "met": false
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/3",
+        "per_source": [
+          true,
+          false,
+          false
+        ]
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/3",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "five lenses in total",
+        "seven lenses"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5644,
+          "output_tokens": 256,
+          "stop_reason": "max_tokens",
+          "ms": 2034
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3510,
+          "output_tokens": 587,
+          "stop_reason": "end_turn",
+          "ms": 5039,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-364",
+            "zuzalzvfwxexpzm8-t0xceuwc-193",
+            "zuzalzvfwxexpzm8-t0xceuwc-368",
+            "zuzalzvfwxexpzm8-t0xceuwc-462",
+            "zuzalzvfwxexpzm8-t0xceuwc-214",
+            "zuzalzvfwxexpzm8-t0xceuwc-195",
+            "zuzalzvfwxexpzm8-t0xceuwc-203",
+            "zuzalzvfwxexpzm8-t0xceuwc-201",
+            "zuzalzvfwxexpzm8-t0xceuwc-237",
+            "zuzalzvfwxexpzm8-t0xceuwc-267",
+            "zuzalzvfwxexpzm8-t0xceuwc-217",
+            "zuzalzvfwxexpzm8-t0xceuwc-206"
+          ]
+        }
+      ],
+      "errors": [
+        "claude-haiku-5-5: max_tokens"
+      ],
+      "ms": 7680,
+      "usd": 0.0135824,
+      "summary": "fallback; facts 0/6; sources in context 1/3; cited 0/3; claude-haiku-5-5: max_tokens"
+    },
+    {
+      "id": "book-15",
+      "corpus": "book",
+      "category": "answerable",
+      "question": "At what levels can a rule be enforced, from weakest to strongest?",
+      "expected": "answer",
+      "status": "pass",
+      "found": true,
+      "answer": "There are three layers. Layer one is the prompt, a numbered prohibition in a system prompt, which is the weakest. Layer two is the hook, a program the tool calls itself, such as a git pre-commit hook. Layer three is the last and strongest, described as outside anybody's reach, and the guard also runs in a CI job alongside the hook.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Layer one: the prompt (a request in the system prompt)",
+          "met": true
+        },
+        {
+          "fact": "Layer two: a hook (e.g. git pre-commit, run by the tool)",
+          "met": true
+        },
+        {
+          "fact": "Layer three: outside the machine, in CI with required checks",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/3",
+        "per_source": [
+          true,
+          true,
+          false
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "2/3",
+        "pages": [
+          "book.pdf p169",
+          "book.pdf p174"
+        ]
+      },
+      "forbidden_claims": [
+        "a prompt is enough to enforce rules",
+        "git hooks cannot be skipped"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6589,
+          "output_tokens": 256,
+          "stop_reason": "max_tokens",
+          "ms": 2049
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4075,
+          "output_tokens": 588,
+          "stop_reason": "end_turn",
+          "ms": 5326,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-295",
+            "zuzalzvfwxexpzm8-t0xceuwc-297",
+            "zuzalzvfwxexpzm8-t0xceuwc-310",
+            "zuzalzvfwxexpzm8-t0xceuwc-298",
+            "zuzalzvfwxexpzm8-t0xceuwc-293",
+            "zuzalzvfwxexpzm8-t0xceuwc-160",
+            "zuzalzvfwxexpzm8-t0xceuwc-296",
+            "zuzalzvfwxexpzm8-t0xceuwc-320",
+            "zuzalzvfwxexpzm8-t0xceuwc-289",
+            "zuzalzvfwxexpzm8-t0xceuwc-306",
+            "zuzalzvfwxexpzm8-t0xceuwc-411",
+            "zuzalzvfwxexpzm8-t0xceuwc-269"
+          ]
+        }
+      ],
+      "errors": [
+        "claude-haiku-5-5: max_tokens"
+      ],
+      "ms": 8035,
+      "usd": 0.014816900000000001,
+      "summary": "answered; facts 3/3; sources in context 2/3; cited 2/3; claude-haiku-5-5: max_tokens"
+    },
+    {
+      "id": "book-16",
+      "corpus": "book",
+      "category": "absent",
+      "question": "How does the book use LangChain to build its agent loop?",
+      "expected": "fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "uses LangChain",
+        "LangChain chains",
+        "LangChain agent executor"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6869,
+          "output_tokens": 22,
+          "stop_reason": "end_turn",
+          "ms": 1332
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4249,
+          "output_tokens": 15,
+          "stop_reason": "end_turn",
+          "ms": 1436,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-86",
+            "zuzalzvfwxexpzm8-t0xceuwc-101",
+            "zuzalzvfwxexpzm8-t0xceuwc-85",
+            "zuzalzvfwxexpzm8-t0xceuwc-88",
+            "zuzalzvfwxexpzm8-t0xceuwc-97",
+            "zuzalzvfwxexpzm8-t0xceuwc-8",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-16",
+            "zuzalzvfwxexpzm8-t0xceuwc-323",
+            "zuzalzvfwxexpzm8-t0xceuwc-385",
+            "zuzalzvfwxexpzm8-t0xceuwc-108",
+            "zuzalzvfwxexpzm8-t0xceuwc-5"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3729,
+      "usd": 0.009345899999999999,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-17",
+      "corpus": "book",
+      "category": "absent",
+      "question": "Does the book show how to fine-tune a model on my own codebase?",
+      "expected": "fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "fine-tune the model",
+        "fine-tuning",
+        "training data set"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6089,
+          "output_tokens": 10,
+          "stop_reason": "end_turn",
+          "ms": 1023
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3904,
+          "output_tokens": 15,
+          "stop_reason": "end_turn",
+          "ms": 1307,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-25",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-405",
+            "zuzalzvfwxexpzm8-t0xceuwc-55",
+            "zuzalzvfwxexpzm8-t0xceuwc-327",
+            "zuzalzvfwxexpzm8-t0xceuwc-157",
+            "zuzalzvfwxexpzm8-t0xceuwc-41",
+            "zuzalzvfwxexpzm8-t0xceuwc-54",
+            "zuzalzvfwxexpzm8-t0xceuwc-4",
+            "zuzalzvfwxexpzm8-t0xceuwc-148",
+            "zuzalzvfwxexpzm8-t0xceuwc-132",
+            "zuzalzvfwxexpzm8-t0xceuwc-139"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3118,
+      "usd": 0.0085719,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-18",
+      "corpus": "book",
+      "category": "absent",
+      "question": "How does the book say to deploy the pipeline to Kubernetes with Docker?",
+      "expected": "fallback",
+      "status": "pass",
+      "found": false,
+      "answer": "I couldn't find that in the passages I read for this question, which are only part of your documents. Asking about it more specifically may find it.",
+      "refused": "empty",
+      "http": 200,
+      "facts": [],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "0/0",
+        "per_source": []
+      },
+      "citations": {
+        "cited": 0,
+        "sources_supported": "0/0",
+        "pages": []
+      },
+      "forbidden_claims": [
+        "Docker image",
+        "Kubernetes deployment",
+        "kubectl",
+        "Helm chart"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6407,
+          "output_tokens": 10,
+          "stop_reason": "end_turn",
+          "ms": 1442
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3981,
+          "output_tokens": 15,
+          "stop_reason": "end_turn",
+          "ms": 1367,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-322",
+            "zuzalzvfwxexpzm8-t0xceuwc-15",
+            "zuzalzvfwxexpzm8-t0xceuwc-373",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-332",
+            "zuzalzvfwxexpzm8-t0xceuwc-372",
+            "zuzalzvfwxexpzm8-t0xceuwc-323",
+            "zuzalzvfwxexpzm8-t0xceuwc-343",
+            "zuzalzvfwxexpzm8-t0xceuwc-363",
+            "zuzalzvfwxexpzm8-t0xceuwc-367",
+            "zuzalzvfwxexpzm8-t0xceuwc-182",
+            "zuzalzvfwxexpzm8-t0xceuwc-18"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3431,
+      "usd": 0.0087577,
+      "summary": "fallback; facts 0/0; sources in context 0/0; cited 0/0"
+    },
+    {
+      "id": "book-19",
+      "corpus": "book",
+      "category": "misleading",
+      "question": "Why does the book recommend having the model grade its own work as the main quality check?",
+      "expected": "correct_or_fallback",
+      "status": "review",
+      "found": true,
+      "answer": "The book does not recommend this; it says the opposite. It warns that nothing should grade its own work, because a model asked whether its own work is correct will usually say yes, and a grader whose only input is the thing being graded is a text generator with a strong prior towards approval. The checks it recommends instead do not depend on the model's opinion of its own output.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "The book says nothing grades its own work; self-grading fails",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "2/2",
+        "per_source": [
+          true,
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/2",
+        "pages": [
+          "book.pdf p84",
+          "book.pdf p10",
+          "book.pdf p89"
+        ]
+      },
+      "forbidden_claims": [
+        "the book recommends self-grading",
+        "the model should grade its own work",
+        "self-grading is the main check"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 5868,
+          "output_tokens": 30,
+          "stop_reason": "end_turn",
+          "ms": 1483
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3818,
+          "output_tokens": 196,
+          "stop_reason": "end_turn",
+          "ms": 1952,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-157",
+            "zuzalzvfwxexpzm8-t0xceuwc-148",
+            "zuzalzvfwxexpzm8-t0xceuwc-150",
+            "zuzalzvfwxexpzm8-t0xceuwc-13",
+            "zuzalzvfwxexpzm8-t0xceuwc-159",
+            "zuzalzvfwxexpzm8-t0xceuwc-266",
+            "zuzalzvfwxexpzm8-t0xceuwc-377",
+            "zuzalzvfwxexpzm8-t0xceuwc-14",
+            "zuzalzvfwxexpzm8-t0xceuwc-163",
+            "zuzalzvfwxexpzm8-t0xceuwc-158",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-161"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 4910,
+      "usd": 0.0101978,
+      "summary": "answered; facts 1/1; sources in context 2/2; cited 1/2"
+    },
+    {
+      "id": "book-20",
+      "corpus": "book",
+      "category": "misleading",
+      "question": "Why does the book say temperature 0 makes the model fully deterministic?",
+      "expected": "correct_or_fallback",
+      "status": "review",
+      "found": true,
+      "answer": "The book does not say that. It says the opposite: temperature 0 does not make the model deterministic, only the selection rule, so the most likely candidate is taken every time. Identical requests at temperature 0 can still produce different text because of floating-point arithmetic and server-side batching, which are outside your control.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "Temperature 0 does not make the model deterministic; identical requests can still differ",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 3,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p28",
+          "book.pdf p217",
+          "book.pdf p27"
+        ]
+      },
+      "forbidden_claims": [
+        "temperature 0 makes the model deterministic",
+        "temperature zero guarantees identical output"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6001,
+          "output_tokens": 16,
+          "stop_reason": "end_turn",
+          "ms": 858
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 3944,
+          "output_tokens": 184,
+          "stop_reason": "end_turn",
+          "ms": 1935,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-49",
+            "zuzalzvfwxexpzm8-t0xceuwc-408",
+            "zuzalzvfwxexpzm8-t0xceuwc-48",
+            "zuzalzvfwxexpzm8-t0xceuwc-407",
+            "zuzalzvfwxexpzm8-t0xceuwc-223",
+            "zuzalzvfwxexpzm8-t0xceuwc-154",
+            "zuzalzvfwxexpzm8-t0xceuwc-25",
+            "zuzalzvfwxexpzm8-t0xceuwc-13",
+            "zuzalzvfwxexpzm8-t0xceuwc-161",
+            "zuzalzvfwxexpzm8-t0xceuwc-287",
+            "zuzalzvfwxexpzm8-t0xceuwc-132",
+            "zuzalzvfwxexpzm8-t0xceuwc-9"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 3728,
+      "usd": 0.0103361,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    },
+    {
+      "id": "book-21",
+      "corpus": "book",
+      "category": "misleading",
+      "question": "Why does the book say a twenty-round agent loop costs about twenty times a single request?",
+      "expected": "correct_or_fallback",
+      "status": "review",
+      "found": true,
+      "answer": "The book says the opposite: a twenty-round loop does not cost twenty times one request, but closer to two hundred. Cost is linear in the tokens you send, and each round re-sends the entire growing conversation. Chapter 4 gives the example of a twenty-turn run over a transcript ending at 40,000 tokens, which sends about 400,000 input tokens, so cost is quadratic in turn count.",
+      "refused": null,
+      "http": 200,
+      "facts": [
+        {
+          "fact": "It does not cost twenty times; closer to two hundred (cost grows roughly quadratically)",
+          "met": true
+        }
+      ],
+      "retrieval": {
+        "k": 12,
+        "sources_in_context": "1/1",
+        "per_source": [
+          true
+        ]
+      },
+      "citations": {
+        "cited": 2,
+        "sources_supported": "1/1",
+        "pages": [
+          "book.pdf p22",
+          "book.pdf p66"
+        ]
+      },
+      "forbidden_claims": [
+        "costs twenty times",
+        "cost is linear in rounds",
+        "20x a single request"
+      ],
+      "model_calls": [
+        {
+          "model": "claude-haiku-5-5",
+          "input_tokens": 6496,
+          "output_tokens": 20,
+          "stop_reason": "end_turn",
+          "ms": 1495
+        },
+        {
+          "model": "claude-sonnet-5-5",
+          "input_tokens": 4072,
+          "output_tokens": 504,
+          "stop_reason": "end_turn",
+          "ms": 5634,
+          "given": [
+            "zuzalzvfwxexpzm8-t0xceuwc-115",
+            "zuzalzvfwxexpzm8-t0xceuwc-38",
+            "zuzalzvfwxexpzm8-t0xceuwc-114",
+            "zuzalzvfwxexpzm8-t0xceuwc-104",
+            "zuzalzvfwxexpzm8-t0xceuwc-105",
+            "zuzalzvfwxexpzm8-t0xceuwc-101",
+            "zuzalzvfwxexpzm8-t0xceuwc-9",
+            "zuzalzvfwxexpzm8-t0xceuwc-337",
+            "zuzalzvfwxexpzm8-t0xceuwc-110",
+            "zuzalzvfwxexpzm8-t0xceuwc-157",
+            "zuzalzvfwxexpzm8-t0xceuwc-135",
+            "zuzalzvfwxexpzm8-t0xceuwc-125"
+          ]
+        }
+      ],
+      "errors": [],
+      "ms": 7682,
+      "usd": 0.0138436,
+      "summary": "answered; facts 1/1; sources in context 1/1; cited 1/1"
+    }
+  ]
+}

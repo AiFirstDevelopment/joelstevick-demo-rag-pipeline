@@ -1,9 +1,0 @@
-Article - Transportation
-§22–222.
-(a) Except as otherwise provided in the Maryland Vehicle Law, the headlamps or the auxiliary driving lamp or combination thereof on motor vehicles shall be so arranged that the driver may select at will between distributions of light projected to different elevations, and the lamps, in addition, may be so arranged that the selection can be made automatically, subject to the following limitations:
-(1) There shall be an uppermost distribution of light, or composite beam, so aimed and of intensity to reveal persons and vehicles at a distance of at least 450 feet ahead for all conditions of loading;
-(2) There shall be a lowermost distribution of light, or composite beam, so aimed and of sufficient intensity to reveal persons and vehicles at a distance of at least 150 feet ahead;
-(3) On a straight level road under any condition of loading, none of the high–intensity portion of the beam may be directed to strike the eyes of an approaching driver; and
-(4) Not more than four lamps that project a beam of light of an intensity greater than 300 candlepower may be illuminated simultaneously.
-(b) Every new motor vehicle shall be equipped with a beam indicator, which shall be lighted whenever the uppermost distribution of light from the headlamps is in use, and may not otherwise be lighted.
-(c) The indicator shall be so designed and located that, when lighted, it will be readily visible without glare to the driver of the vehicle so equipped.
