@@ -31,7 +31,7 @@ export function widen(given: Chunk[], all: Chunk[]): Chunk[] {
 
   // Every chunk that goes in: the given ones always, then their neighbours under the budget.
   // `taken` and `placed` are sets of Chunk objects, so `has` is by identity, not text: `given`
-  // holds the very objects `all` does (retrieve and rerank pass them through unchanged).
+  // holds the very objects `all` does (fuseKeywordAndVector and rerank pass them through unchanged).
   const taken = new Set<Chunk>(given)
   // One budget, in characters, shared by the whole call: not per chunk, not per side.
   let added = 0

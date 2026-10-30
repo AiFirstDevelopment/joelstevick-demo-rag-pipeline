@@ -98,7 +98,7 @@ export function bm25(chunks: Chunk[], question: string, limit: number): Chunk[] 
  * as a chunk since deleted, is dropped here and never shown. When no vector
  * ids are left (no index, or it failed), the result is keyword search alone.
  */
-export function retrieve(chunks: Chunk[], question: string, limit: number, near: string[] = []): Chunk[] {
+export function fuseKeywordAndVector(chunks: Chunk[], question: string, limit: number, near: string[] = []): Chunk[] {
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]))
   // The vector search results passed in as `near`, kept only if they are still this demo's chunks.
   const meant = near.filter((id) => byId.has(id))

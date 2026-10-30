@@ -89,14 +89,14 @@ Search the file for `ASK` to see each stage.
 |---|---|---|
 | 1 | [app.ts:336](demo/src/app.ts#L336) | validate the question |
 | 2 | [app.ts:340](demo/src/app.ts#L340) | reserve one of the ten questions, atomically |
-| 3-4 | [app.ts:360](demo/src/app.ts#L360) | [`retrieval`](demo/src/app.ts#L311): read every chunk from D1, embed the question and query Vectorize, then [`retrieve`](demo/src/retrieval.ts#L101) runs BM25 and merges both rankings by reciprocal rank fusion |
+| 3-4 | [app.ts:360](demo/src/app.ts#L360) | [`retrieval`](demo/src/app.ts#L311): read every chunk from D1, embed the question and query Vectorize, then [`fuseKeywordAndVector`](demo/src/retrieval.ts#L101) runs BM25 and merges both rankings by reciprocal rank fusion |
 | 5 | [app.ts:372](demo/src/app.ts#L372) | [`rerank`](demo/src/models.ts#L116): Claude Haiku orders the 48-chunk pool; then [`widen`](demo/src/widen.ts#L27) adds each chosen chunk's neighbours under a character budget |
 | 6 | [app.ts:379](demo/src/app.ts#L379) | [`answer`](demo/src/models.ts#L159): Claude Sonnet answers from those passages only, citing their ids |
 | 7 | [app.ts:389](demo/src/app.ts#L389) | [`checkAnswer`](demo/src/check.ts#L96): code checks every cited id was given and every figure appears in a cited passage; otherwise the answer is refused and the fallback is shown |
 | 8 | [app.ts:393](demo/src/app.ts#L393) | return the answer with each source's stored text, never the model's paraphrase |
 
 Retrieval is split on purpose: everything that reaches a service and can fail (D1, the embedding
-model, Vectorize) is in `retrieval`, with its fallbacks, so `retrieve` stays a pure function of
+model, Vectorize) is in `retrieval`, with its fallbacks, so `fuseKeywordAndVector` stays a pure function of
 plain values that can be tested with arrays alone.
 
 ## The eval harness: `evals/`

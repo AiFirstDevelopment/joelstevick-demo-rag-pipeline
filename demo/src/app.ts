@@ -18,7 +18,7 @@
 import { checkAnswer } from './check'
 import { chunkPage } from './chunks'
 import { ANSWER_CHUNKS, answer, rerank, type Models } from './models'
-import { retrieve, type Chunk } from './retrieval'
+import { fuseKeywordAndVector, type Chunk } from './retrieval'
 import { widen } from './widen'
 
 export interface Env {
@@ -300,11 +300,11 @@ export interface Options {
 /**
  * ASK 3-4 · retrieval: the chunks a question is answered from, with every chunk of the demo.
  *
- * Reads the demo's chunks from D1, runs the vector search, and hands both to `retrieve`
+ * Reads the demo's chunks from D1, runs the vector search, and hands both to `fuseKeywordAndVector`
  * (retrieval.ts), which runs the keyword search (BM25) and merges the two rankings. The stage is
  * split this way on purpose, for testability. Everything that reaches a service and can be
  * missing or fail (D1, the embedding model, Vectorize) is here, with its fallbacks, so that
- * `retrieve` stays a pure function of plain values (chunks, question, ids in; chunks out) that
+ * `fuseKeywordAndVector` stays a pure function of plain values (chunks, question, ids in; chunks out) that
  * can be exercised with arrays alone, no bindings, no fakes. `all` is returned too: the caller
  * reads documents whole when they fit and widens the chosen chunks by their neighbours in it.
  */
@@ -328,7 +328,7 @@ async function retrieval(question: string, env: Env, models: Models, demo: Demo)
     }
   }
   // Merge keyword (BM25) and vector results into the candidate pool.
-  return { all, retrieved: retrieve(all, question, POOL, near) }
+  return { all, retrieved: fuseKeywordAndVector(all, question, POOL, near) }
 }
 
 async function ask(request: Request, env: Env, models: Models, demo: Demo, options: Options): Promise<Response> {
@@ -358,12 +358,12 @@ async function ask(request: Request, env: Env, models: Models, demo: Demo, optio
   }
 
   // ASK 3-4 · retrieval: every chunk (D1) and the vector search (Vectorize), merged with keyword
-  // search (BM25) into the candidate pool. `retrieval` below says why it is split from `retrieve`.
+  // search (BM25) into the candidate pool. `retrieval` below says why it is split from `fuseKeywordAndVector`.
   const { all, retrieved } = await retrieval(question, env, models, demo)
   // Documents that fit the answer whole are read whole, retrieved chunks first: then, and only
   // then, "not in your documents" is true.
   const whole = all.length <= ANSWER_CHUNKS
-  // `includes` here is by object identity, not text: `retrieve` returns the very Chunk objects
+  // `includes` here is by object identity, not text: `fuseKeywordAndVector` returns the very Chunk objects
   // `all` holds, so the filter appends every chunk not already among the retrieved.
   const pool = whole ? [...retrieved, ...all.filter((chunk) => !retrieved.includes(chunk))] : retrieved
   const missing = whole ? NOT_FOUND : NOT_IN_PASSAGES
