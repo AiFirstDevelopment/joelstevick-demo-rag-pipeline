@@ -60,8 +60,9 @@ CREATE TABLE IF NOT EXISTS questions (
   answer    TEXT,                            -- the model's answer, unverified; NULL when it failed
   sources   TEXT NOT NULL DEFAULT '[]',      -- JSON: [{file, page, last_page?, passage}] cited
   checked   INTEGER NOT NULL DEFAULT 0,      -- 1 when the citation check passed and the answer was shown
-  fallback  TEXT,                            -- NULL, 'not_found', 'refused' or 'trouble'
+  fallback  TEXT,                            -- NULL, 'not_found', 'refused', 'trouble' or 'stopped' (checked, shown in part)
   ms        INTEGER,
+  first_ms  INTEGER,                         -- milliseconds to the first sentence shown; NULL when none was
   keep      INTEGER NOT NULL DEFAULT 0
 );
 CREATE INDEX IF NOT EXISTS questions_demo ON questions(demo_id, asked_at);

@@ -2,7 +2,8 @@
 
 [joelstevick.com/demo](https://joelstevick.com/demo) lets a visitor upload their own PDFs and ask
 up to ten questions. Each answer is two to four sentences, or a list of up to twelve items when it names
-several things, citing the file and page it rests on, and an answer whose citations don't check out is never shown. This repository is that demo's code,
+several things, citing the file and page it rests on. The answer appears a sentence at a time, each sentence checked
+against its sources before it is shown, and a sentence whose citations don't check out is never shown. This repository is that demo's code,
 from the page in the browser to the Worker that answers, plus the eval harness used to tune it.
 
 It runs on Cloudflare: a Pages site (the page and its functions), a private Worker (the pipeline),
@@ -25,16 +26,17 @@ Read the files in this order; the line links land on the step.
 
 ### 1. The page: `demo.html`
 
-- `GET /demo` is the static [demo.html](demo.html). Its script ([line 101](demo.html#L101)) does
+- `GET /demo` is the static [demo.html](demo.html). Its script ([line 99](demo.html#L99)) does
   the browser's part.
 - On load it asks `GET /api/demo/session` for the demo's files and questions left
-  ([line 162](demo.html#L162)).
+  ([line 160](demo.html#L160)).
 - **The PDFs never leave the browser.** Picking files fires the change handler
   ([line 198](demo.html#L198)); `pagesOf` ([line 184](demo.html#L184)) reads each PDF with pdf.js and
   extracts each page's text. Only that text and the file name are posted, one file at a time, to
   `POST /api/demo/files` ([line 207](demo.html#L207)).
-- Removing a file sends `DELETE /api/demo/files` ([line 141](demo.html#L141)); asking sends
-  `POST /api/demo/ask` ([line 288](demo.html#L288)).
+- Removing a file sends `DELETE /api/demo/files` ([line 139](demo.html#L139)); asking sends
+  `POST /api/demo/ask` with `Accept: text/event-stream` ([line 359](demo.html#L359)), so the answer
+  comes back as a stream (step 6).
 
 ### 2. The Pages Functions: `functions/`
 
@@ -43,11 +45,12 @@ Cloudflare Pages routes by file name: `functions/demo.ts` serves `/demo`, and
 
 - [functions/demo.ts](functions/demo.ts#L10): `GET /demo?key=…` (a bookmarked link) sets the demo
   cookie, then serves the page. Without a key it serves the page unchanged.
-- [functions/api/demo/[[path]].ts](functions/api/demo/[[path]].ts#L22): the proxy. It allows only
+- [functions/api/demo/[[path]].ts](functions/api/demo/[[path]].ts#L24): the proxy. It allows only
   `session`, `files` and `ask`, reads the visitor's demo key from the cookie
   ([functions/_lib/demo.ts](functions/_lib/demo.ts#L11)), and forwards the request to the Worker as
-  `X-Demo-Key` through the `DEMO` service binding ([line 31](functions/api/demo/[[path]].ts#L31)).
-  The Worker has no public URL; this binding is the only way in.
+  `X-Demo-Key` through the `DEMO` service binding ([line 36](functions/api/demo/[[path]].ts#L36)), with the
+  page's `Accept` header. The Worker's response, a stream included, is handed back unread and
+  unbuffered. The Worker has no public URL; this binding is the only way in.
 - [functions/_lib/track.ts](functions/_lib/track.ts) is a stand-in here: on the site it is the
   visitor analytics and consent check, which are not part of this repository.
 
@@ -59,10 +62,10 @@ Cloudflare Pages routes by file name: `functions/demo.ts` serves `/demo`, and
 - [demo/src/index.ts](demo/src/index.ts#L10) builds the Worker with `createApp`, passing a function
   that turns `env` into the models. The tests pass scripted models through the same door
   ([tests/support/scripted.ts](tests/support/scripted.ts)), so no test calls a paid API.
-- [`createApp`](demo/src/app.ts#L574) returns `{ fetch, scheduled }`. `fetch` calls
-  [`route`](demo/src/app.ts#L552), which looks the demo up by the key's SHA-256
-  ([`signedIn`](demo/src/app.ts#L82)) and dispatches to `session`, `upload`, `remove` or `ask`.
-  `scheduled` runs daily: [`purge`](demo/src/app.ts#L408) deletes a demo's documents after 10 days
+- [`createApp`](demo/src/app.ts#L926) returns `{ fetch, scheduled }`. `fetch` calls
+  [`route`](demo/src/app.ts#L901), which looks the demo up by the key's SHA-256
+  ([`signedIn`](demo/src/app.ts#L92)) and dispatches to `session`, `upload`, `remove` or `ask`.
+  `scheduled` runs daily: [`purge`](demo/src/app.ts#L743) deletes a demo's documents after 10 days
   without use.
 
 ### 4. Ingest: `upload` in `app.ts`
@@ -71,13 +74,13 @@ Search the file for `INGEST` to see each stage.
 
 | Stage | Where | What |
 |---|---|---|
-| 1 | [app.ts:146](demo/src/app.ts#L146) | validate the name, page count and each page's text |
-| 2 | [app.ts:161](demo/src/app.ts#L161) | claim the file name (one row per file) |
-| 3 | [app.ts:173](demo/src/app.ts#L173) | check the demo's limits in one atomic statement |
-| 4 | [app.ts:190](demo/src/app.ts#L190) | chunk each page: [chunks.ts](demo/src/chunks.ts#L18), about 900 characters, cut at a sentence end |
-| 5 | [app.ts:196](demo/src/app.ts#L196) | store the chunks in D1, rolled back on failure |
-| 6 | [app.ts:223](demo/src/app.ts#L223) | embed the chunks (bge-m3) and upsert the vectors into Vectorize, under the demo's id as namespace |
-| 7 | [app.ts:238](demo/src/app.ts#L238) | notify on a demo's first upload, and reply |
+| 1 | [app.ts:218](demo/src/app.ts#L218) | validate the name, page count and each page's text |
+| 2 | [app.ts:236](demo/src/app.ts#L236) | claim the file name (one row per file) |
+| 3 | [app.ts:249](demo/src/app.ts#L249) | check the demo's limits in one atomic statement |
+| 4 | [app.ts:267](demo/src/app.ts#L267) | chunk each page: [chunks.ts](demo/src/chunks.ts#L19), about 900 characters, cut at a sentence end |
+| 5 | [app.ts:273](demo/src/app.ts#L273) | store the chunks in D1, rolled back on failure |
+| 6 | [app.ts:300](demo/src/app.ts#L300) | embed the chunks (bge-m3) and upsert the vectors into Vectorize, under the demo's id as namespace |
+| 7 | [app.ts:315](demo/src/app.ts#L315) | notify on a demo's first upload, and reply |
 
 If embedding fails, the file is still searchable by keywords; nothing the visitor sees depends on it.
 
@@ -87,17 +90,33 @@ Search the file for `ASK` to see each stage.
 
 | Stage | Where | What |
 |---|---|---|
-| 1 | [app.ts:336](demo/src/app.ts#L336) | validate the question |
-| 2 | [app.ts:340](demo/src/app.ts#L340) | reserve one of the ten questions, atomically |
-| 3-4 | [app.ts:360](demo/src/app.ts#L360) | [`retrieval`](demo/src/app.ts#L311): read every chunk from D1, embed the question and query Vectorize, then [`fuseKeywordAndVector`](demo/src/retrieval.ts#L101) runs BM25 and merges both rankings by reciprocal rank fusion |
-| 5 | [app.ts:372](demo/src/app.ts#L372) | [`rerank`](demo/src/models.ts#L116): Claude Haiku orders the 48-chunk pool; then [`widen`](demo/src/widen.ts#L27) adds each chosen chunk's neighbours under a character budget |
-| 6 | [app.ts:379](demo/src/app.ts#L379) | [`answer`](demo/src/models.ts#L159): Claude Sonnet answers from those passages only, citing their ids |
-| 7 | [app.ts:389](demo/src/app.ts#L389) | [`checkAnswer`](demo/src/check.ts#L96): code checks every cited id was given and every figure appears in a cited passage; otherwise the answer is refused and the fallback is shown |
-| 8 | [app.ts:393](demo/src/app.ts#L393) | return the answer with each source's stored text, never the model's paraphrase |
+| 1 | [app.ts:461](demo/src/app.ts#L461) | validate the question |
+| 2 | [app.ts:465](demo/src/app.ts#L465) | reserve one of the ten questions, atomically |
+| 3-4 | [app.ts:581](demo/src/app.ts#L581) | [`retrieval`](demo/src/app.ts#L398): read every chunk from D1, embed the question and query Vectorize, then [`fuseKeywordAndVector`](demo/src/retrieval.ts#L119) runs BM25 and merges both rankings by reciprocal rank fusion |
+| 5 | [app.ts:600](demo/src/app.ts#L600) | [`rerank`](demo/src/models.ts#L233): Claude Haiku orders the 48-chunk pool; then [`widen`](demo/src/widen.ts#L27) adds each chosen chunk's neighbours under a character budget |
+| 6-7 | [app.ts:609](demo/src/app.ts#L609) | [`answer`](demo/src/models.ts#L305): Claude Sonnet streams its answer from those passages only, each sentence ending with the ids it cites; [`units`](demo/src/check.ts#L267) cuts the text so far into complete sentences and list items, and [`checkUnits`](demo/src/check.ts#L347) checks each one as it completes: every cited id was given and every figure appears in a cited passage. A unit that passes is released; the first that fails ends the answer there, and if nothing passed the fallback is shown |
+| 8 | [app.ts:712](demo/src/app.ts#L712) | return the answer with each source's stored text, never the model's paraphrase |
 
 Retrieval is split on purpose: everything that reaches a service and can fail (D1, the embedding
 model, Vectorize) is in `retrieval`, with its fallbacks, so `fuseKeywordAndVector` stays a pure function of
 plain values that can be tested with arrays alone.
+
+The stages are one async generator, [`answering`](demo/src/app.ts#L564), which yields an event at
+each step ([`AskEvent`](demo/src/app.ts#L442)). [`ask`](demo/src/app.ts#L459) renders those events
+two ways: as server-sent events when the request asks for `text/event-stream`, or drained to one
+JSON body for every other caller, such as the eval harness ([line 479](demo/src/app.ts#L479)).
+
+### 6. The streamed answer: back in `demo.html`
+
+- The answer arrives as server-sent events: `stage` (the step the ask is at), `unit` (one checked
+  sentence or list item), `stopped` (a later sentence failed its check), then exactly one of
+  `done`, `fallback` or `error`.
+- The ask is a `POST`, so the browser's `EventSource` cannot read it; [`events`](demo.html#L325)
+  reads the body with a reader and yields each whole event.
+- The submit handler acts on each event as it arrives ([line 387](demo.html#L387)): the status
+  line names the stage, each unit is appended to the answer, a stop draws a line under what was
+  shown, and `done` draws the sources.
+- What was shown stays: every sentence on the page passed its own check before it was sent.
 
 ## The eval harness: `evals/`
 
@@ -110,7 +129,9 @@ is how the runs were used to tune the pipeline.
   the answer, and whether each expected source reached the pool, the context and the citations. A
   miss names the stage that lost it.
 - [evals/worker.ts](evals/worker.ts) is the same `createApp` with the real models, plus `/eval/*`
-  routes for the runner. It traces every Anthropic call by wrapping `fetch`.
+  routes for the runner. It traces every Anthropic call by wrapping `fetch`; a streamed answer's
+  tokens are read from its events by [evals/trace.ts](evals/trace.ts) as the stream passes through.
+  Each run records the time to the first sentence beside the total.
 - Spend is capped in `run.mjs`. Each run's results are in [evals/runs/](evals/runs/).
 - The corpus in [evals/corpus/](evals/corpus/) is not MIT licensed (see [LICENSE](LICENSE)). The
   résumé has some personal details redacted, in the PDF and in the run results that quote it.

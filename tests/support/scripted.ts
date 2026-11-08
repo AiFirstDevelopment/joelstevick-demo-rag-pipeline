@@ -19,6 +19,17 @@
  *   [invent-item]       a list whose second item states $4,200, which no chunk does
  *   [long-item]         a list whose one item is the first three sentences of its first passage
  *
+ * The answer is streamed (`stream`): the same answer as text, each sentence and each "- " line
+ * ending with the ids it cites in square brackets, in pieces of a few characters. Its own markers:
+ *
+ *   [slow]              the first two sentences of the first passage, two seconds between them
+ *   [stop-midway]       the first sentence cites its passage, the second an id it was not given
+ *   [five-sentences]    five sentences of the first passage, each citing it
+ *   [die-midway]        the first sentence, then the stream throws
+ *   [uncited-opener]    "Yes." with no ids, then the first sentence citing its passage
+ *   [uncited-figure]    "It costs 4,200 dollars." with no ids, then the first sentence citing its passage
+ *   [uncited-end]       the first sentence citing its passage, then "That is all." with no ids
+ *
  * A question about jobs or a role is answered from the "<role> at <employer>,
  * <year> to <year>" entries in the passages it was given, and from nothing
  * else: every entry for "what jobs", the one whose employer the question names
@@ -32,7 +43,8 @@
  * citing that chunk. The reranker keeps the pool's order and honours the
  * "at most N" its rules give it.
  */
-import { ANSWER_MODEL, RERANK_MODEL, type Claude, type Embed, type Models, type Vector, type Vectors } from '../../demo/src/models'
+import { sentenceParts } from '../../demo/src/check'
+import { ANSWER_MODEL, RERANK_MODEL, type Claude, type ClaudeStream, type Embed, type Models, type Vector, type Vectors } from '../../demo/src/models'
 
 // An entry may wrap across a line, as it does in a PDF.
 const ENTRY = /([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\sat\s([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s(\d{4})\sto\s(\d{4})/g
@@ -95,6 +107,55 @@ export const claude: Claude = async ({ model, system, user }) => {
   throw new Error(`scripted: no script for ${model}`)
 }
 
+/** A scripted answer as the answer model now writes it: every sentence and "- " line ending with its ids. */
+function marked(reply: { answer: string; items?: string[]; sources: string[] }): string {
+  const cite = reply.sources.length > 0 ? ` [${reply.sources.join(', ')}]` : ''
+  const lead = sentenceParts(reply.answer).map((sentence) => `${sentence}${cite}`).join(' ')
+  return [lead, ...(reply.items ?? []).map((item) => `- ${item}${cite}`)].filter((line) => line.length > 0).join('\n')
+}
+
+const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
+
+/** Yields `text` a few characters at a time, as a streamed reply arrives. */
+function* pieces(text: string): Generator<string> {
+  for (let i = 0; i < text.length; i += 5) yield text.slice(i, i + 5)
+}
+
+/**
+ * The answer model, streamed, as the deployed demo's `claudeStreamFor` is: an async generator that
+ * yields the reply a few characters at a time. The reply is the scripted `claude`'s, rewritten as
+ * the real model now writes it (`marked`: each sentence and "- " line ending with its ids), so
+ * every existing marker ([invent-figure], [items], ...) steers the stream as it steered the JSON
+ * reply. The stream's own markers above shape the reply's timing or its citations, for the tests
+ * of the per-sentence check.
+ */
+export const stream: ClaudeStream = async function* (request) {
+  const question = /^Question: (.*)$/m.exec(request.user)?.[1] ?? ''
+  // The scripted JSON reply, then turned into marked text below. `schema` is unused by the fake.
+  const reply = (await claude({ ...request, schema: {} })) as { answer: string; items?: string[]; sources: string[] }
+  const first = /^\[([^\]]+)\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/m.exec(request.user.split('Passages:\n\n')[1] ?? '')
+  const id = first?.[1] ?? ''
+  const said = sentenceParts(flat(first?.[2] ?? ''))
+  if (question.includes('[slow]')) {
+    // The first sentence is complete once the second has begun, as it is when the real model writes.
+    const second = `${said[1] ?? said[0]} [${id}]`
+    yield* pieces(`${said[0]} [${id}] ${second.slice(0, 3)}`)
+    await pause(2000)
+    yield* pieces(second.slice(3))
+    return
+  }
+  if (question.includes('[stop-midway]')) return yield* pieces(`${said[0]} [${id}] ${said[1] ?? 'It is also covered elsewhere.'} [nowhere-0]`)
+  if (question.includes('[five-sentences]')) return yield* pieces(Array.from({ length: 5 }, (_, i) => `${said[i % said.length]} [${id}]`).join(' '))
+  if (question.includes('[uncited-opener]')) return yield* pieces(`Yes. ${said[0]} [${id}]`)
+  if (question.includes('[uncited-figure]')) return yield* pieces(`It costs 4,200 dollars. ${said[0]} [${id}]`)
+  if (question.includes('[uncited-end]')) return yield* pieces(`${said[0]} [${id}] That is all.`)
+  if (question.includes('[die-midway]')) {
+    yield* pieces(`${said[0]} [${id}] And`)
+    throw new Error('scripted: the answer model failed partway')
+  }
+  yield* pieces(marked(reply))
+}
+
 const DIMENSIONS = 1024
 
 /** A bag of hashed words, normalised: texts sharing words are near. */
@@ -138,5 +199,5 @@ export class ScriptedVectors implements Vectors {
 }
 
 export function scriptedModels(vectors: ScriptedVectors): Models {
-  return { claude, embed, vectors }
+  return { claude, stream, embed, vectors }
 }

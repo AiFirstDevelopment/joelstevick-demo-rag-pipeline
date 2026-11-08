@@ -15,7 +15,7 @@
  * may be recorded), the question outlives the 10-day purge and each uploaded page's text is
  * archived in `archived_pages`; both are deleted after 25 months.
  */
-import { checkAnswer } from './check'
+import { checkUnits, uncited, units, type Counts, type RawUnit, type UnitKind } from './check'
 import { chunkPage } from './chunks'
 import { ANSWER_CHUNKS, answer, rerank, type Models } from './models'
 import { fuseKeywordAndVector, type Chunk } from './retrieval'
@@ -365,12 +365,12 @@ async function tellJoel(mailer: Fetcher, demo: Demo, file: string, pages: number
   // The contact is "Name <address>"; without one, the name is a placeholder and the address is Joel's own.
   const [, name = demo.contact ?? 'A demo visitor', email = 'joelstevick@gmail.com'] = /^(.*) <(.*)>$/.exec(demo.contact ?? '') ?? []
   try {
-    // The body has the contact form's shape; budget 'template' files it under the Starter AI assistant.
+    // The body has the contact form's shape; budget 'rag' files it under the RAG pipeline and eval harness.
     await mailer.fetch('https://mailer/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name, email, company: demo.company ?? '', budget: 'template',
+        name, email, company: demo.company ?? '', budget: 'rag',
         message: `DEMO STARTED (demo ${demo.id})\nCompany: ${demo.company ?? '(not given)'}\nFirst upload: ${file}\nFiles: 1, pages: ${pages}`,
       }),
     })
@@ -419,10 +419,44 @@ async function retrieval(question: string, env: Env, models: Models, demo: Demo)
 }
 
 /**
- * Answers one question from the demo's documents: reserve one of its questions, retrieve, rerank,
- * widen, answer, check the citations in code, and record the outcome.
+ * What the ask says as it goes (docs/plans/demo-stream.md). The ask is written once, as an async
+ * generator of these events (`answering` below), and rendered two ways from that one sequence:
+ *
+ *   - as server-sent events, when the page asks with `Accept: text/event-stream`: each event is
+ *     written to the response the moment it is yielded, so the first checked sentence reaches the
+ *     browser while the model is still writing the rest;
+ *   - as one JSON body, for every other caller (the eval harness, the history on reload, a plain
+ *     POST): the same events are drained to their end and the last one becomes the body.
+ *
+ * The events, in the order they can occur:
+ *   stage     the ask has moved on: retrieving the passages, reranking them, or writing the answer;
+ *   unit      one checked sentence (or a list's lead-in, or one list item), released to the page,
+ *             with the ids of the passages it cites;
+ *   stopped   a later unit failed its check (or the model failed partway): what was shown stays,
+ *             and nothing more will come;
+ *   done      the whole answer, as the JSON body has always carried it, plus the timings;
+ *   fallback  nothing was shown: the "couldn't find that" line, with the check's reason;
+ *   error     the model failed before anything was shown: the question is given back.
+ * Exactly one of done, fallback or error ends every ask.
  */
-async function ask(request: Request, env: Env, models: Models, demo: Demo, options: Options): Promise<Response> {
+export type AskEvent =
+  | { type: 'stage'; stage: 'retrieving' | 'reranking' | 'writing' }
+  | { type: 'unit'; kind: UnitKind; text: string; sources: string[] }
+  | { type: 'stopped'; reason: 'empty' | 'uncited' | 'ungrounded' | 'overlong' | 'trouble' }
+  | { type: 'done'; answer: string; items?: string[]; sources: unknown[]; found: true; left: number; first_ms: number | null; ms: number }
+  | { type: 'fallback'; answer: string; found: false; refused?: string; left: number }
+  | { type: 'error'; error: string; left: number }
+
+/** The line shown under an answer that stopped partway. */
+export const STOPPED = "The answer stopped here: its next sentence didn't check out against your documents."
+
+/**
+ * Answers one question from the demo's documents: reserve one of its questions, retrieve, rerank,
+ * widen, then stream the answer, checking each sentence or list item in code as it completes and
+ * releasing it only when it passes; record the outcome. Validation and the limit answer in JSON
+ * before anything is streamed.
+ */
+async function ask(request: Request, env: Env, models: Models, demo: Demo, options: Options, ctx?: ExecutionContext): Promise<Response> {
   const body = (await request.json().catch(() => ({}))) as { question?: unknown }
   // ASK 1 · validate the question
   const question = typeof body.question === 'string' ? body.question.trim() : ''
@@ -433,25 +467,120 @@ async function ask(request: Request, env: Env, models: Models, demo: Demo, optio
   const reserved = await env.DB.prepare("UPDATE demos SET asks_used = asks_used + 1, used_at = datetime('now') WHERE id = ? AND asks_used < ? RETURNING asks_used")
     .bind(demo.id, LIMITS.asks).first<{ asks_used: number }>()
   if (reserved === null) return json(429, { error: "You've used your ten questions.", left: 0 })
-  // `left` is what the reply reports; `started` times the whole ask for the record.
-  const left = LIMITS.asks - reserved.asks_used
-  const started = Date.now()
-  // Every outcome is recorded; a failure to record never costs the visitor the answer.
-  const recorded = async (status: number, body: Record<string, unknown>, row: { answer: string | null; sources?: unknown[]; checked?: boolean; fallback: string | null }) => {
-    // The row's id goes back in X-Question-Id, so the site can tie its event to this question.
-    const id = randomKey(12)
+  // The question's id is drawn now, before the row exists, because a streamed response sends its
+  // headers (X-Question-Id among them) before the answer is known; the row is inserted at the end
+  // under this same id.
+  const id = randomKey(12)
+  // Calling an async generator function runs none of its body: `events` is a handle on the ask,
+  // and the ask only proceeds as something iterates it (`for await` below). Both renderings
+  // iterate the same object, so there is one pipeline, never two.
+  const events = answering(request, env, models, demo, options, question, LIMITS.asks - reserved.asks_used, id)
+
+  if (!(request.headers.get('Accept') ?? '').includes('text/event-stream')) {
+    // JSON: the same events, drained to the end, and the last one shaped into the body the
+    // route has always answered with (`answer`, `items`, `sources`, `found`, `left`, `refused`),
+    // plus `first_ms` and, when the answer stopped partway, `stopped` with its reason. A `unit`
+    // event is skipped here: the body carries the whole answer at the end.
+    let result: Record<string, unknown> = {}
+    let status = 200
+    let stopped: string | null = null
+    let recorded = false
+    for await (const event of events) {
+      if (event.type === 'stopped') stopped = event.reason
+      else if (event.type === 'done') result = { ...strip(event), ...(stopped === null ? {} : { stopped }) }
+      else if (event.type === 'fallback') result = { ...strip(event), sources: [], first_ms: null }
+      else if (event.type === 'error') (result = strip(event)), (status = 503)
+      else if (event.type === 'recorded') recorded = event.ok
+    }
+    // X-Question-Id names the row to the site only when the row was written, as before.
+    return json(status, result, about(demo, recorded ? id : undefined))
+  }
+
+  // Server-sent events. The response is the readable side of a TransformStream, returned at once
+  // with the headers; the writable side is fed by `pump`, which iterates the generator and writes
+  // each event as `event: <type>\ndata: <json>\n\n`, the text/event-stream framing the page's
+  // reader (demo.html, `events`) and the eval trace (evals/trace.ts) parse. Nothing is buffered:
+  // each write reaches the browser as soon as the Worker has made it.
+  const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
+  const writer = writable.getWriter()
+  const encoder = new TextEncoder()
+  const pump = (async () => {
+    // `open` is whether the browser is still reading. Once a write fails (the visitor closed the
+    // tab, or the connection dropped) nothing more is written, but the generator is still run to
+    // its end below, so the ask is checked and recorded exactly as if they had stayed.
+    let open = true
+    const send = async (type: string, data: Record<string, unknown>) => {
+      try {
+        await writer.write(encoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
+      } catch {
+        // The visitor has gone: the rest of the ask still runs, so it is recorded.
+        open = false
+      }
+    }
     try {
-      await env.DB.prepare('INSERT INTO questions (id, demo_id, question, answer, sources, checked, fallback, ms, keep) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, demo.id, question, row.answer, JSON.stringify(row.sources ?? []), row.checked ? 1 : 0, row.fallback, Date.now() - started, keeps(request) ? 1 : 0).run()
-      return json(status, body, about(demo, id))
+      // The `recorded` sentinel is for the JSON rendering only; the browser never sees it.
+      for await (const event of events) if (event.type !== 'recorded' && open) await send(event.type, strip(event))
+    } catch (error) {
+      // An exception out of the generator (D1 down, a bug) is what `createApp` turns into a 500
+      // for a JSON request; here the status went out long ago, so it is said as the last event.
+      console.error('demo: the request failed', error)
+      if (open) await send('error', { error: 'Something went wrong. Please try again in a minute.', left: LIMITS.asks - reserved.asks_used })
+    }
+    // Closing the writer ends the stream, which is how the page knows the ask is over.
+    if (open) await writer.close().catch(() => {})
+  })()
+  // The pump outlives the `return` below. `waitUntil` tells the Workers runtime to keep the
+  // request alive until it settles, so the insert at the end of the ask is never cut off when
+  // the visitor leaves early; locally (tests, `wrangler dev`) there may be no ctx, and the
+  // promise simply runs.
+  ctx?.waitUntil(pump)
+  // The X-Demo-* headers go out with the stream's headers, so the proxy can record its event
+  // before the body has ended; `no-store` keeps any cache from holding a stream.
+  return new Response(readable, { status: 200, headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', ...about(demo, id) } })
+}
+
+/** An event's fields without its type, as the body or the event's data carries them. */
+function strip(event: { type: string }): Record<string, unknown> {
+  const { type: _type, ...rest } = event
+  return rest
+}
+
+/**
+ * The ask after its question is reserved, as an async generator: every `AskEvent` in order,
+ * ending in exactly one of done, fallback or error, then a `recorded` sentinel saying whether the
+ * row was written (the JSON rendering uses it for X-Question-Id).
+ *
+ * Why a generator. The ask has to do two things at once: run the pipeline (retrieve, rerank,
+ * read the model's stream, check each sentence, record the row) and tell the caller what has
+ * happened so far, at the moment it happens. An async generator does both in one plain
+ * sequence of steps: `await` where the pipeline waits on a service, `yield` where it has
+ * something to say. The consumer (`ask` above) pulls the next event with `for await`; between
+ * pulls the generator is suspended at its last `yield`, so a slow reader slows the ask rather
+ * than piling up events. Nothing here knows whether it is being rendered as a stream or as JSON.
+ *
+ * The stages read in order, as the old `ask` did: ASK 3-4 retrieval, ASK 5 rerank and widen,
+ * ASK 6-7 the answer written and checked a unit at a time, ASK 8 the answer with its sources.
+ */
+async function* answering(
+  request: Request, env: Env, models: Models, demo: Demo, options: Options, question: string, left: number, id: string,
+): AsyncGenerator<AskEvent | { type: 'recorded'; ok: boolean }> {
+  // `started` times the whole ask for the record, and the first shown unit for `first_ms`.
+  const started = Date.now()
+  // Every outcome is recorded with the id drawn above; a failure to record never costs the visitor the answer.
+  const record = async (row: { answer: string | null; sources?: unknown[]; checked?: boolean; fallback: string | null; first_ms?: number | null }) => {
+    try {
+      await env.DB.prepare('INSERT INTO questions (id, demo_id, question, answer, sources, checked, fallback, ms, first_ms, keep) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        .bind(id, demo.id, question, row.answer, JSON.stringify(row.sources ?? []), row.checked ? 1 : 0, row.fallback, Date.now() - started, row.first_ms ?? null, keeps(request) ? 1 : 0).run()
+      return true
     } catch (error) {
       console.error('demo ask: the question could not be recorded', error)
-      return json(status, body, about(demo))
+      return false
     }
   }
 
   // ASK 3-4 · retrieval: every chunk (D1) and the vector search (Vectorize), merged with keyword
-  // search (BM25) into the candidate pool. `retrieval` below says why it is split from `fuseKeywordAndVector`.
+  // search (BM25) into the candidate pool. `retrieval` above says why it is split from `fuseKeywordAndVector`.
+  yield { type: 'stage', stage: 'retrieving' }
   const { all, retrieved } = await retrieval(question, env, models, demo)
   // Documents that fit the answer whole are read whole, retrieved chunks first: then, and only
   // then, "not in your documents" is true.
@@ -461,40 +590,139 @@ async function ask(request: Request, env: Env, models: Models, demo: Demo, optio
   const pool = whole ? [...retrieved, ...all.filter((chunk) => !retrieved.includes(chunk))] : retrieved
   const missing = whole ? NOT_FOUND : NOT_IN_PASSAGES
   // No candidate at all (no chunks, or none matched): the fallback is recorded as not_found, and the question still counts.
-  if (pool.length === 0) return recorded(200, { answer: missing, sources: [], found: false, left }, { answer: null, fallback: 'not_found' })
+  if (pool.length === 0) {
+    const ok = await record({ answer: null, fallback: 'not_found' })
+    yield { type: 'fallback', answer: missing, found: false, left }
+    yield { type: 'recorded', ok }
+    return
+  }
 
   // ASK 5 · rerank (Claude picks the best passages), then widen (add their neighbours)
   // Each chosen chunk with its neighbours, unless every chunk is already given. It passed 5 of 5
   // boundary cases against 4 of 5 for 60% more a question, past the bar set before the runs;
   // Joel switched it on for the better answers (/stories/widening, evals/runs/*-widen-*).
+  yield { type: 'stage', stage: 'reranking' }
   const chosen = await rerank(models.claude, question, pool)
   // When every chunk is already given there is nothing to widen into.
   const given = whole || options.widen === false ? chosen : widen(chosen, all)
-  // ASK 6 · answer (Claude writes it from the given passages only)
-  let reply: { answer: string; items: string[]; sources: string[] }
-  try {
-    reply = await answer(models.claude, question, given)
-  } catch (error) {
-    console.error('demo ask: the answer model failed; the question is given back', error)
-    // The reservation at ASK 2 is undone: the failure costs the visitor no question.
-    await env.DB.prepare('UPDATE demos SET asks_used = asks_used - 1 WHERE id = ? AND asks_used > 0').bind(demo.id).run()
-    return recorded(503, { error: TROUBLE, left: left + 1 }, { answer: null, fallback: 'trouble' })
+
+  // ASK 6-7 · answer (Claude writes it from the given passages only), each unit checked in code
+  // as it completes and released only when it passes; the first that fails ends the answer.
+  //
+  // The model's reply arrives as text, a few characters at a time (`answer` in models.ts yields
+  // each `text_delta` of the Messages API stream). `text` accumulates it. After every piece,
+  // `units` (check.ts) cuts the text so far into the sentences and list lines that are complete,
+  // and each one not yet dealt with is checked and either released, held, or ends the answer.
+  yield { type: 'stage', stage: 'writing' }
+  // Every unit released so far, with the chunks it cited: the sources and the recorded answer are built from these.
+  const shown: { kind: UnitKind; text: string; cited: Chunk[] }[] = []
+  // How many prose sentences and list items have been released: the caps (four, twelve) are checked against these.
+  const counts: Counts = { prose: 0, items: 0 }
+  // Milliseconds from the start of the ask to the first unit released: the number this design is for.
+  let firstMs: number | null = null
+  // The model's reply so far, markers and all.
+  let text = ''
+  // Why the answer ended early, once it has: a check's reason, or `trouble` when the model failed partway.
+  let failed: 'empty' | 'uncited' | 'ungrounded' | 'overlong' | 'trouble' | null = null
+  // Units the model wrote without ids ("No, it is a small loss."), waiting to be released with
+  // the next unit that has them and checked against that unit's passages (Joel, 2026-10-30).
+  const held: RawUnit[] = []
+  // Checks and releases every complete unit in `text` that is not yet shown or held. A sync
+  // generator rather than a function, because each released unit must be yielded to the caller
+  // as a `unit` event in the middle of the work: `yield*` below hands each one up, and the
+  // generator's return value (true to carry on, false once a unit has failed) comes back as the
+  // value of the `yield*` expression. `units` returns the same leading units for every longer
+  // text, so slicing past what is shown or held gives exactly the new ones.
+  function* release(final: boolean): Generator<AskEvent, boolean> {
+    for (const unit of units(text, final).slice(shown.length + held.length)) {
+      // No ids of its own: it waits for a cited unit to vouch for it.
+      if (uncited(unit)) {
+        held.push(unit)
+        continue
+      }
+      // The held units and this one are checked together as one group, against this one's ids.
+      const checked = checkUnits([...held.splice(0), unit], given, question, counts)
+      if (!checked.ok) {
+        failed = checked.reason
+        return false
+      }
+      // Each unit of the group is released in order; the first ever released sets `first_ms`.
+      for (const one of checked.units) {
+        shown.push({ ...one, cited: checked.cited })
+        if (one.kind === 'item') counts.items++
+        else counts.prose++
+        firstMs ??= Date.now() - started
+        yield { type: 'unit', kind: one.kind, text: one.text, sources: checked.cited.map((chunk) => chunk.id) }
+      }
+    }
+    // The reply ended on a sentence with no ids: nothing came to vouch for it, so it is never shown.
+    if (final && held.length > 0) {
+      failed = 'uncited'
+      return false
+    }
+    return true
   }
-  // ASK 7 · check the citations in code; refuse the answer if they don't hold
-  const checked = checkAnswer(reply, given, question)
-  // A refused answer goes out as the fallback, and is recorded with the model's words (its list
-  // included) and the reason, for the evals and /admin.
-  if (!checked.ok) return recorded(200, { answer: missing, sources: [], found: false, left, refused: checked.reason }, { answer: asText(reply.answer, reply.items), fallback: 'refused' })
-  // ASK 8 · return the answer with its sources
+  try {
+    // A labelled block, so a failed check can leave the loop *and* skip the final release: once a
+    // unit has failed, nothing later in the reply is read or shown. Leaving the `for await` early
+    // returns the model's stream, which cancels the HTTP body (`serverEvents`, models.ts), so a
+    // refused answer is not read, or paid for, to its end.
+    reading: {
+      for await (const piece of answer(models.stream, question, given)) {
+        text += piece
+        // Any units this piece completed are checked and released now, while the model writes on.
+        if (!(yield* release(false))) break reading
+      }
+      // The stream has ended: what is left is the last unit, full stop or not.
+      yield* release(true)
+    }
+  } catch (error) {
+    // The model failed (a timeout, an error event, a dropped connection). What that means
+    // depends on whether anything has been shown yet.
+    if (shown.length === 0) {
+      console.error('demo ask: the answer model failed; the question is given back', error)
+      // The reservation at ASK 2 is undone: the failure costs the visitor no question.
+      await env.DB.prepare('UPDATE demos SET asks_used = asks_used - 1 WHERE id = ? AND asks_used > 0').bind(demo.id).run()
+      const ok = await record({ answer: null, fallback: 'trouble' })
+      yield { type: 'error', error: TROUBLE, left: left + 1 }
+      yield { type: 'recorded', ok }
+      return
+    }
+    // An answer was already shown: the failure stops it there, and the question is not given back.
+    console.error('demo ask: the answer model failed partway; the answer stops', error)
+    failed = 'trouble'
+  }
+  // A reply that ends with no unit says nothing: the model's own "no passage answers it".
+  if (shown.length === 0 && failed === null) failed = 'empty'
+
+  if (shown.length === 0) {
+    // Nothing was shown: the fallback, exactly as before streaming. The model's words (its
+    // markers included, as it wrote them) are recorded with the reason, for the evals and /admin,
+    // and never reach the visitor.
+    const words = text.trim()
+    const ok = await record({ answer: words === '' ? null : words, fallback: 'refused' })
+    yield { type: 'fallback', answer: missing, found: false, refused: failed ?? 'empty', left }
+    yield { type: 'recorded', ok }
+    return
+  }
+  // Something was shown and then a later unit failed: the page is told to draw its stop line
+  // under what it has; the answer is recorded as checked and `stopped`, and the question counts.
+  if (failed !== null) yield { type: 'stopped', reason: failed }
+
+  // ASK 8 · the answer with its sources, in order of first citation
   // The passage is the stored text it was given, read by its id: never the model's words.
-  const sources = checked.cited.map((chunk) => ({
+  const cited = [...new Set(shown.flatMap((unit) => unit.cited))]
+  const sources = cited.map((chunk) => ({
     id: chunk.id, file: chunk.file, page: chunk.page, ...(chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? { last_page: chunk.lastPage } : {}), passage: chunk.text,
   }))
   // `items` goes to the page only when the answer is a list, so a prose answer's body is as before.
   // The recorded answer is one text either way (`asText`), since /admin and the golden-set
   // export read the `questions.answer` column as text.
-  const shown = checked.items.length > 0 ? { answer: checked.answer, items: checked.items } : { answer: checked.answer }
-  return recorded(200, { ...shown, sources, found: true, left }, { answer: asText(checked.answer, checked.items), sources, checked: true, fallback: null })
+  const prose = shown.filter((unit) => unit.kind !== 'item').map((unit) => unit.text).join(' ')
+  const items = shown.filter((unit) => unit.kind === 'item').map((unit) => unit.text)
+  const ok = await record({ answer: asText(prose, items), sources, checked: true, fallback: failed === null ? null : 'stopped', first_ms: firstMs })
+  yield { type: 'done', answer: prose, ...(items.length > 0 ? { items } : {}), sources, found: true, left, first_ms: firstMs, ms: Date.now() - started }
+  yield { type: 'recorded', ok }
 }
 
 /**
@@ -670,7 +898,7 @@ async function golden(url: URL, env: Env): Promise<Response> {
   return new Response(lines.map((line) => `${line}\n`).join(''), { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8' } })
 }
 
-async function route(request: Request, env: Env, models: Models, options: Options): Promise<Response> {
+async function route(request: Request, env: Env, models: Models, options: Options, ctx?: ExecutionContext): Promise<Response> {
   const url = new URL(request.url)
   const { pathname } = url
   // The site's own calls first: creating and opening demos, and the /admin reads. The proxy never
@@ -690,17 +918,17 @@ async function route(request: Request, env: Env, models: Models, options: Option
   if (pathname === '/api/session' && request.method === 'GET') return session(demo, env)
   if (pathname === '/api/files' && request.method === 'POST') return upload(request, env, models, demo)
   if (pathname === '/api/files' && request.method === 'DELETE') return remove(request, env, models, demo)
-  if (pathname === '/api/ask' && request.method === 'POST') return ask(request, env, models, demo, options)
+  if (pathname === '/api/ask' && request.method === 'POST') return ask(request, env, models, demo, options, ctx)
   return json(404, { error: 'not found' })
 }
 
 /** The Worker: `fetch` serves the routes, `scheduled` runs the daily purge and expiry. */
 export function createApp(modelsFor: (env: Env) => Models, options: Options = {}) {
   return {
-    async fetch(request: Request, env: Env): Promise<Response> {
+    async fetch(request: Request, env: Env, ctx?: ExecutionContext): Promise<Response> {
       try {
         // `modelsFor(env)` on every request: `env` exists only inside a handler, never at module load.
-        return await route(request, env, modelsFor(env), options)
+        return await route(request, env, modelsFor(env), options, ctx)
       } catch (error) {
         console.error('demo: the request failed', error)
         return json(500, { error: 'Something went wrong. Please try again in a minute.' })

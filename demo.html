@@ -33,7 +33,6 @@
     <nav>
       <a href="/">Home</a>
       <a href="/#services">Services</a>
-      <a href="/#accessibility">Accessibility</a>
       <a href="/#work">Work</a>
       <a href="/stories">Stories</a>
       <span class="account"><a href="/sign-in" data-signed-out>Sign in</a><a href="/admin" rel="nofollow" data-admin hidden>Admin</a><a href="/projects" data-signed-in hidden>Projects</a><a href="/" data-signed-in data-sign-out hidden>Sign out</a></span>
@@ -50,7 +49,7 @@
 
     <div id="signed-out" hidden>
       <p class="expired" id="expired" hidden>This demo link has expired or is no longer valid. A demo's search index is deleted after 10 days without use.</p>
-      <p class="lede">Upload a set of your own PDFs and ask a chatbot built from them on the spot. It shows the answer quality and the source checks on files you can hand it in a minute: each answer is two to four sentences, or a list of up to twelve items when it names several things, with the file and page it rests on, and an answer whose sources don't check out is never shown. A real build connects to your company's systems instead of PDFs. The starter AI assistant, $4,500, is this on your documents or one of your systems.</p>
+      <p class="lede">Upload a set of your own PDFs and ask a chatbot built from them on the spot. It shows the answer quality and the source checks on files you can hand it in a minute: each answer is two to four sentences, or a list of up to twelve items when it names several things, with the file and page it rests on. The answer appears a sentence at a time, each checked against its sources first, and a sentence whose sources don't check out is never shown. A real build connects to your company's systems instead of PDFs. The RAG pipeline and eval harness, $7,500, is this on your documents and one of your systems.</p>
       <ul class="limits">
         <li>Up to 10 questions.</li>
         <li>Up to 5 PDFs, 300 pages and 500 KB of text in all. Scanned pages without text are skipped.</li>
@@ -80,10 +79,9 @@
 
       <div class="offer" id="offer" hidden>
         <h2>That was your ten questions.</h2>
-        <p>Like what you saw? The <a href="/register?service=template">starter AI assistant, $4,500</a>, is this, on your documents or one read-only data source, deployed in your own cloud and live in one week.</p>
-        <p>Want it connected to your company's systems, tuned and tested on your questions? That's a <a href="/register?service=build">custom build</a>, at a fixed price set in a statement of work you accept.</p>
+        <p>Like what you saw? The <a href="/rag-chatbot">RAG pipeline and eval harness, $7,500</a>, is this on your own documents and one of your systems: a custom AI chatbot with its sources, tested against a golden set of your questions, deployed in your own cloud and live in about three weeks.</p>
         <div class="actions">
-          <a class="button" href="/register?service=template">Get the starter assistant</a>
+          <a class="button" href="/register?service=rag">Start your RAG chatbot</a>
           <a class="button ghost" href="https://calendly.com/joelstevick/20min" target="_blank" rel="noopener">Book a 20-minute call</a>
         </div>
       </div>
@@ -223,80 +221,125 @@
     input.value = "";
   });
 
-  // Draws one answer. A new answer (from Ask) goes on top and is shown open. An earlier answer
-  // (from the session's history, when the page loads) is drawn collapsed to its question, in a
-  // <details> the visitor opens with a click, so a reload keeps every answer without filling the
-  // screen; earlier answers come newest first and are appended in that order, below any new ones.
-  function render(question, body, earlier = false) {
+  // A new answer's box, or an earlier one's. A new answer (from Ask) goes on top and is shown open.
+  // An earlier answer (from the session's history, when the page loads) is drawn collapsed to its
+  // question, in a <details> the visitor opens with a click, so a reload keeps every answer without
+  // filling the screen; earlier answers come newest first and are appended in that order, below any new ones.
+  function answerBox(question, earlier = false) {
     const box = document.createElement(earlier ? "details" : "div");
     box.className = earlier ? "answer earlier" : "answer";
     const q = document.createElement(earlier ? "summary" : "p");
     q.className = "q";
     q.textContent = question;
-    // The answer: prose, or a list. A list (body.items) is drawn as bullets under its lead-in, so
-    // "what jobs have I held" reads as one job a line rather than one long sentence. Both are
-    // inside the one ".a" element, which holds the whole of what the answer says.
+    // The answer: prose, or a list. A list is drawn as bullets under its lead-in, so "what jobs have
+    // I held" reads as one job a line rather than one long sentence. Both are inside the one ".a"
+    // element, which holds the whole of what the answer says.
     const a = document.createElement("div");
     a.className = "a";
-    if (body.answer) {
-      const lead = document.createElement("p");
-      lead.textContent = body.answer;
-      a.append(lead);
-    }
-    if (Array.isArray(body.items) && body.items.length > 0) {
-      const items = document.createElement("ul");
-      items.className = "items";
-      for (const item of body.items) {
-        const li = document.createElement("li");
-        li.textContent = item;
-        items.append(li);
-      }
-      a.append(items);
-    }
     box.append(q, a);
-    if (body.sources.length > 0) {
-      const list = document.createElement("ul");
-      list.className = "sources";
-      // One line per file and page, with a button for each passage cited from it.
-      const groups = new Map();
-      for (const source of body.sources) {
-        const key = JSON.stringify([source.file, source.page]);
-        if (!groups.has(key)) groups.set(key, []);
-        groups.get(key).push(source);
-      }
-      for (const sources of groups.values()) {
-        const { file, page } = sources[0];
-        const li = document.createElement("li");
-        const url = opened.get(file);
-        const name = document.createElement(url ? "a" : "span");
-        name.className = "source-name";
-        name.textContent = file;
-        // No rel="noopener": Chrome opens a blob URL in a new browsing context group as about:blank.
-        if (url) { name.href = `${url}#page=${page}`; name.target = "_blank"; }
-        // A passage widened past a page break names the last page it reaches.
-        const last = Math.max(page, ...sources.map((source) => source.last_page ?? page));
-        li.append(name, last > page ? ` · pages ${page}–${last}` : ` · page ${page}`);
-        sources.forEach((source, i) => {
-          const label = sources.length === 1 ? "the passage" : `passage ${i + 1}`;
-          const passage = document.createElement("blockquote");
-          passage.className = "passage";
-          passage.textContent = source.passage;
-          passage.hidden = true;
-          const show = document.createElement("button");
-          show.type = "button";
-          show.textContent = `Show ${label}`;
-          show.addEventListener("click", () => {
-            passage.hidden = !passage.hidden;
-            show.textContent = `${passage.hidden ? "Show" : "Hide"} ${label}`;
-          });
-          li.append(show, passage);
-        });
-        list.append(li);
-      }
-      box.append(list);
-    }
     if (earlier) $("answers").append(box);
     else $("answers").prepend(box);
+    return box;
+  }
+
+  // One sentence (or a list's lead-in) added to the answer's paragraph.
+  function addProse(box, text) {
+    const a = box.querySelector(".a");
+    let lead = a.querySelector(":scope > p");
+    if (!lead) { lead = document.createElement("p"); a.prepend(lead); }
+    lead.textContent = lead.textContent ? `${lead.textContent} ${text}` : text;
+  }
+
+  // One list item added to the answer's bullets.
+  function addItem(box, text) {
+    const a = box.querySelector(".a");
+    let items = a.querySelector(":scope > ul.items");
+    if (!items) { items = document.createElement("ul"); items.className = "items"; a.append(items); }
+    const li = document.createElement("li");
+    li.textContent = text;
+    items.append(li);
+  }
+
+  // The sources under an answer: one line per file and page, with a button for each passage cited from it.
+  function addSources(box, sources) {
+    if (sources.length === 0) return;
+    const list = document.createElement("ul");
+    list.className = "sources";
+    const groups = new Map();
+    for (const source of sources) {
+      const key = JSON.stringify([source.file, source.page]);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(source);
+    }
+    for (const sources of groups.values()) {
+      const { file, page } = sources[0];
+      const li = document.createElement("li");
+      const url = opened.get(file);
+      const name = document.createElement(url ? "a" : "span");
+      name.className = "source-name";
+      name.textContent = file;
+      // No rel="noopener": Chrome opens a blob URL in a new browsing context group as about:blank.
+      if (url) { name.href = `${url}#page=${page}`; name.target = "_blank"; }
+      // A passage widened past a page break names the last page it reaches.
+      const last = Math.max(page, ...sources.map((source) => source.last_page ?? page));
+      li.append(name, last > page ? ` · pages ${page}–${last}` : ` · page ${page}`);
+      sources.forEach((source, i) => {
+        const label = sources.length === 1 ? "the passage" : `passage ${i + 1}`;
+        const passage = document.createElement("blockquote");
+        passage.className = "passage";
+        passage.textContent = source.passage;
+        passage.hidden = true;
+        const show = document.createElement("button");
+        show.type = "button";
+        show.textContent = `Show ${label}`;
+        show.addEventListener("click", () => {
+          passage.hidden = !passage.hidden;
+          show.textContent = `${passage.hidden ? "Show" : "Hide"} ${label}`;
+        });
+        li.append(show, passage);
+      });
+      list.append(li);
+    }
+    box.append(list);
+  }
+
+  // Draws one whole answer: an earlier one, or a fallback line.
+  function render(question, body, earlier = false) {
+    const box = answerBox(question, earlier);
+    if (body.answer) addProse(box, body.answer);
+    for (const item of Array.isArray(body.items) ? body.items : []) addItem(box, item);
+    addSources(box, body.sources ?? []);
+  }
+
+  const STAGES = { retrieving: "Searching your documents…", reranking: "Choosing passages…", writing: "Writing…" };
+  const STOPPED = "The answer stopped here: its next sentence didn't check out against your documents.";
+  const TROUBLE_STOP = "The answer stopped here: the demo had trouble finishing it.";
+
+  // The events of the ask's stream, each as { event, data }, as they arrive. The ask is a POST,
+  // so the browser's EventSource (which can only GET) is no use; the response body is read here
+  // with a reader instead. The body is text/event-stream: "event: <type>", "data: <json>", and a
+  // blank line ending each event. It arrives in chunks that can end mid-line, so the text is kept
+  // in a buffer and only whole events, those followed by a blank line, are taken from it; the rest
+  // waits for the next chunk. An async generator, so the submit handler below can read the
+  // events with a plain `for await` loop and act on each the moment it is whole.
+  async function* events(response) {
+    // Bytes to text as they come; a character split across two chunks is joined by the decoder.
+    const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+    let buffer = "";
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (value) buffer += value;
+      let end;
+      while ((end = buffer.indexOf("\n\n")) >= 0) {
+        const block = buffer.slice(0, end);
+        buffer = buffer.slice(end + 2);
+        const event = /^event: (.*)$/m.exec(block)?.[1] ?? "message";
+        const data = /^data: (.*)$/m.exec(block)?.[1];
+        if (data !== undefined) yield { event, data: JSON.parse(data) };
+      }
+      // `done` is the server closing the stream: the ask is over.
+      if (done) return;
+    }
   }
 
   $("ask").addEventListener("submit", async (event) => {
@@ -307,25 +350,76 @@
     if (question === "") return;
     const button = form.querySelector("button");
     button.disabled = true;
-    status.textContent = "Thinking…";
+    status.textContent = STAGES.retrieving;
+    const answers = $("answers");
     try {
+      // `Accept: text/event-stream` asks for the answer as a stream of events (one checked
+      // sentence at a time) rather than one JSON body at the end. `fetch` resolves as soon as the
+      // headers arrive; the body is then read below while the Worker is still writing it.
       const response = await fetch("/api/demo/ask", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", Accept: "text/event-stream" },
         body: JSON.stringify({ question }),
       });
-      const body = await response.json().catch(() => ({}));
-      if (response.status === 429) { status.textContent = ""; showOffer(); return; }
-      if (!response.ok) { status.textContent = body.error || "Something went wrong. Please try again in a minute."; return; }
-      status.textContent = "";
-      form.elements.question.value = "";
-      render(question, body);
-      left = body.left;
-      showLeft();
-      if (left <= 0) showOffer();
+      // Refusals before any answer (the limit, a bad question, signed out) come as JSON.
+      if (!(response.headers.get("Content-Type") ?? "").includes("text/event-stream")) {
+        const body = await response.json().catch(() => ({}));
+        if (response.status === 429) { status.textContent = ""; showOffer(); return; }
+        status.textContent = body.error || "Something went wrong. Please try again in a minute.";
+        return;
+      }
+      // The answer is announced once, when it is whole, not once a sentence.
+      answers.setAttribute("aria-busy", "true");
+      let box = null;
+      let ended = false;
+      // Every event of this ask, kept on the window for the test suite: a streamed body cannot be
+      // read back from the browser once the page has consumed it.
+      const got = [];
+      window.lastAsk = got;
+      // Each event is acted on as it arrives, so the page changes while the answer is still
+      // being written. The events, in the order the Worker sends them (demo/src/app.ts, AskEvent):
+      //   stage     which step the ask is at: the status line names it;
+      //   unit      one checked sentence (or lead-in, or list item): appended to the answer;
+      //   stopped   a later sentence failed its check: a line under what was shown says so;
+      //   done      the whole answer: its sources are drawn under it;
+      //   fallback  nothing passed the check: the "couldn't find that" line;
+      //   error     the model failed before any sentence: the trouble line, the question kept.
+      for await (const { event: type, data } of events(response)) {
+        got.push({ event: type, data });
+        if (type === "stage") status.textContent = STAGES[data.stage] ?? "";
+        else if (type === "unit") {
+          // The first unit makes the answer's box; the status line and the question box clear then, not before.
+          if (!box) { box = answerBox(question); status.textContent = ""; form.elements.question.value = ""; }
+          if (data.kind === "item") addItem(box, data.text);
+          else addProse(box, data.text);
+        } else if (type === "stopped") {
+          // What is on the page stays: each sentence passed its own check. The line says why no more comes.
+          const line = document.createElement("p");
+          line.className = "stopped";
+          line.textContent = data.reason === "trouble" ? TROUBLE_STOP : STOPPED;
+          box?.append(line);
+        } else if (type === "done" || type === "fallback") {
+          ended = true;
+          status.textContent = "";
+          form.elements.question.value = "";
+          // `done` after units: the sources go under the box already drawn. `fallback`: nothing
+          // was shown, so the whole thing is drawn now, as an earlier answer is.
+          if (type === "done") addSources(box ?? answerBox(question), data.sources);
+          else render(question, data);
+          left = data.left;
+          showLeft();
+          if (left <= 0) showOffer();
+        } else if (type === "error") {
+          ended = true;
+          status.textContent = data.error || "Something went wrong. Please try again in a minute.";
+        }
+      }
+      // The stream closed without done, fallback or error: the connection was cut mid-answer.
+      if (!ended) status.textContent = "The answer was cut off. Please try again in a minute.";
     } catch {
       status.textContent = "Couldn't reach the server. Please try again in a minute.";
     } finally {
+      answers.removeAttribute("aria-busy");
       button.disabled = false;
     }
   });

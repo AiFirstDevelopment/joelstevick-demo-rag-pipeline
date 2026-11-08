@@ -26,6 +26,21 @@ export type Claude = (request: {
   effort?: 'low'
 }) => Promise<unknown>
 
+/**
+ * Claude's reply as it is written: the text, a piece at a time, through the Messages API's
+ * streaming. It is an `AsyncIterable<string>`: the caller reads it with `for await`, each value
+ * being the next few characters of the reply, and leaving the loop early stops the call. Throws
+ * when the call fails, before or during the text, so the caller degrades. The suite scripts one in
+ * tests/support/scripted.ts (`stream`); the deployed demo uses `claudeStreamFor`.
+ */
+export type ClaudeStream = (request: {
+  model: string
+  system: string
+  user: string
+  maxTokens: number
+  timeoutMs: number
+}) => AsyncIterable<string>
+
 /** An embedding: one text as a point in the embedding model's space (bge-m3: 1,024 numbers). */
 export type Vector = number[]
 
@@ -45,6 +60,8 @@ export interface Vectors {
 /** What a demo calls. Without `embed` or `vectors` (no Workers AI or Vectorize binding), it answers from keyword search alone. */
 export interface Models {
   claude: Claude
+  /** The answer model, streamed. */
+  stream: ClaudeStream
   embed?: Embed
   vectors?: Vectors
 }
@@ -75,6 +92,93 @@ export function claudeFor(apiKey: string | undefined): Claude {
     const text = (body.content ?? []).filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
     // Text that is not JSON throws here, which the caller treats as a failed call.
     return JSON.parse(text)
+  }
+}
+
+/**
+ * Claude through the Messages API, streamed, with no retries: the `text_delta` pieces of the reply
+ * in order, as an async generator.
+ *
+ * With `stream: true` the API answers with a server-sent event stream instead of one JSON body.
+ * The events that matter here, in the order they come:
+ *   message_start          the reply has begun (its input token count is here; the eval trace reads it);
+ *   content_block_start    a block begins: `thinking` first, since the model thinks before it writes,
+ *                          then `text`;
+ *   content_block_delta    a piece of the current block: `thinking_delta` (skipped here) or
+ *                          `text_delta`, whose `text` is the next few characters of the answer;
+ *   message_delta          the end is near: the stop reason and the output token count;
+ *   message_stop           the end.
+ * Only the `text_delta` pieces are yielded; the thinking is never shown or checked. An `error`
+ * event (the API overloaded mid-reply) throws, which the caller treats as the model failing.
+ */
+export function claudeStreamFor(apiKey: string | undefined): ClaudeStream {
+  return async function* ({ model, system, user, maxTokens, timeoutMs }) {
+    // No key: throw at once, so the caller degrades exactly as it does when the model fails.
+    if (apiKey === undefined || apiKey === '') throw new Error('no ANTHROPIC_API_KEY')
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      // The timeout covers the whole reply, streamed or not: a model that stalls mid-answer aborts
+      // the body, which throws out of the `for await` below.
+      signal: AbortSignal.timeout(timeoutMs),
+      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
+      // No `output_config`: the answer is plain text with inline citations (ANSWER_RULES), not JSON.
+      body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }], stream: true }),
+    })
+    // An error reply (a bad key, a rate limit) is one JSON body, not a stream; its message is kept.
+    if (!response.ok || response.body === null) {
+      const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
+      throw new Error(`Anthropic ${response.status}: ${body.error?.message ?? ''}`)
+    }
+    // Each server-sent event's data is one JSON object; only the text pieces are passed on.
+    for await (const event of serverEvents(response.body)) {
+      const data = JSON.parse(event.data) as { type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } }
+      if (data.type === 'content_block_delta' && data.delta?.type === 'text_delta') yield data.delta.text ?? ''
+      else if (data.type === 'error') throw new Error(`Anthropic stream: ${data.error?.message ?? ''}`)
+    }
+  }
+}
+
+/**
+ * The events of a server-sent event stream, each with its name and its data, as an async generator.
+ *
+ * The wire format (text/event-stream) is lines: "event: <name>", one or more "data: <text>",
+ * other fields ignored here, and a blank line ending each event. The body arrives in chunks that
+ * end anywhere, mid-line included, so the decoded text is kept in `buffer` and only whole events,
+ * those followed by a blank line, are taken out of it; the remainder waits for the next chunk.
+ */
+export async function* serverEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<{ event: string; data: string }> {
+  // Bytes to text as they come; a multi-byte character split across two chunks is joined by the decoder.
+  const reader = body.pipeThrough(new TextDecoderStream()).getReader()
+  let buffer = ''
+  // The `finally` runs however the generator ends: the stream read to its end, an exception, or
+  // the caller leaving its `for await` early (`return()` on the generator). Cancelling the reader
+  // then cancels the HTTP body, so a reply the demo has stopped reading (a sentence failed its
+  // check) is not read, or paid for, to its end.
+  try {
+    for (;;) {
+      const { value, done } = await reader.read()
+      // Line endings normalised, so the blank line that ends an event is always "\n\n".
+      if (value !== undefined) buffer += value.replace(/\r\n/g, '\n')
+      // Each event ends at a blank line; what follows the last one waits for more.
+      let end: number
+      while ((end = buffer.indexOf('\n\n')) >= 0) {
+        const block = buffer.slice(0, end)
+        buffer = buffer.slice(end + 2)
+        // An event with no "event:" line is named "message", as the standard says.
+        let event = 'message'
+        const data: string[] = []
+        for (const line of block.split('\n')) {
+          if (line.startsWith('event:')) event = line.slice(6).trim()
+          // Several "data:" lines are one payload, joined with newlines; the space after the colon is not part of it.
+          else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''))
+        }
+        // A block with no data (a comment, a bare "event:" line) is not an event.
+        if (data.length > 0) yield { event, data: data.join('\n') }
+      }
+      if (done) return
+    }
+  } finally {
+    await reader.cancel().catch(() => {})
   }
 }
 
@@ -162,16 +266,16 @@ export async function rerank(claude: Claude, question: string, pool: Chunk[]): P
 
 /**
  * The answer model's instructions. The shape and length rules here and the check in check.ts
- * (`checkAnswer`) must agree: an answer these rules ask for must pass the check, or the visitor
+ * (`checkUnit`) must agree: an answer these rules ask for must pass the check, or the visitor
  * is shown "couldn't find that" for an answer that was right. So:
  *
- *   - an ordinary answer is prose in "answer", two to four sentences (check.ts MAX_SENTENCES, 4),
- *     with "items" empty;
+ *   - an ordinary answer is prose, two to four sentences (check.ts MAX_SENTENCES, 4), each ending
+ *     with the ids it rests on, since each sentence is checked and shown on its own;
  *   - an answer that names several things of one kind (every job, every fee, every chapter), or
- *     one the question asks to have a sentence or a line each, is a list: one entry per thing in
- *     "items", at most 12 (check.ts MAX_ITEMS), each a phrase or one sentence (the check allows
- *     two, MAX_ITEM_SENTENCES), and at most a one-sentence lead-in in "answer". The page draws
- *     the entries as bullets.
+ *     one the question asks to have a sentence or a line each, is a list: one "- " line per thing,
+ *     at most 12 (check.ts MAX_ITEMS), each a phrase or one sentence (the check allows two,
+ *     MAX_ITEM_SENTENCES), after at most a one-sentence lead-in. The page draws the lines as
+ *     bullets.
  *
  * A list asked for implicitly counts: "what jobs have I held" is a list as much as "list my jobs".
  * Before lists, such an answer was one sentence with semicolons between the items, which read as
@@ -185,40 +289,31 @@ export async function rerank(claude: Claude, question: string, pool: Chunk[]): P
  */
 const ANSWER_RULES = `You answer a question from passages of the asker's own documents, and from nothing else.
 Write in plain words, with figures in digits exactly as the passages state them.
-Put the ids of the passages you used (for example "a1b2c3-4") in "sources".
+End every sentence with the ids of the passages it rests on, in square brackets, for example "Refunds are paid within 30 days [a1b2c3-4]." or "[a1b2c3-4, d5e6f7-8]" for two. Every sentence, without exception: a short opening sentence, a sentence that continues the one before it, and the sentence introducing a list end with their ids too, as in "No [a1b2c3-4]. Writing to the cache costs more than reading it [a1b2c3-4]." or "He has held these jobs [a1b2c3-4, d5e6f7-8]:". Each sentence is checked against the passages it cites before it is shown.
 Do not write file names or page numbers: they are shown under your answer.
-When the answer names several things of one kind (every job, every fee, every chapter), or the question asks for a sentence or a line for each one, answer with a list: put each thing in "items", one entry per thing, each a short phrase or one sentence, and in "answer" put at most one short sentence introducing the list, or nothing. Name every one the passages give and cite every passage you named one from. If there are more than 12, list the first 12 and say in "answer" that the list is not complete, in words and without a count.
-Otherwise answer in "answer" in two to four short sentences, and leave "items" empty.
-If no passage answers the question, leave "answer", "items" and "sources" empty.
-Never write that the passages or the documents do not say something: you see only some of them, so leave the answer empty instead.`
+When the answer names several things of one kind (every job, every fee, every chapter), or the question asks for a sentence or a line for each one, answer with a list: at most one short sentence introducing it, ending with its ids, or nothing, then one line per thing starting with "- ", each a short phrase or one sentence ending with its ids, with no blank line before the list. Name every one the passages give. If there are more than 12, list the first 12 and say in the introduction that the list is not complete, in words and without a count.
+Otherwise answer in two to four short sentences.
+Write nothing else: no heading, no closing remark.
+If no passage answers the question, write nothing at all.
+Never write that the passages or the documents do not say something: you see only some of them, so write nothing instead.`
 
-/** Sonnet's answer, unchecked. Throws when the model fails, so the ask can be given back. */
-export async function answer(claude: Claude, question: string, given: Chunk[]): Promise<{ answer: string; items: string[]; sources: string[] }> {
+/**
+ * Sonnet's answer as it is written, unchecked: text with inline citations, a piece at a time.
+ * Nothing is read here: the stream is returned for app.ts to iterate, and the call to the model
+ * only starts when it does. Throws (out of the caller's `for await`) when the model fails.
+ */
+export function answer(stream: ClaudeStream, question: string, given: Chunk[]): AsyncIterable<string> {
   // A widened passage that runs past its first page is labelled with the range of pages.
   const pages = (chunk: Chunk) => (chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? `pages ${chunk.page}–${chunk.lastPage}` : `page ${chunk.page}`)
-  // Each passage goes in under its id and its place in the file; the answer's sources must copy those ids.
+  // Each passage goes in under its id and its place in the file; the answer's citations must copy those ids.
   const listed = given.map((chunk) => `[${chunk.id}] (${chunk.file}, ${pages(chunk)})\n${chunk.text}`).join('\n\n')
-  // No `effort` is passed: the answer model thinks at its default.
-  const reply = (await claude({
+  return stream({
     model: ANSWER_MODEL,
     system: ANSWER_RULES,
     user: `Question: ${question}\n\nPassages:\n\n${listed}`,
-    schema: {
-      type: 'object',
-      // `items` is the list form: one entry per thing named, empty for a prose answer (ANSWER_RULES).
-      properties: { answer: { type: 'string' }, items: { type: 'array', items: { type: 'string' } }, sources: { type: 'array', items: { type: 'string' } } },
-      required: ['answer', 'items', 'sources'],
-      additionalProperties: false,
-    },
     // Sonnet 5.5 thinks before answering, inside this limit: 600 left answers within a few
     // tokens of being cut off (eval questions book-14, book-15).
     maxTokens: 2000,
     timeoutMs: 30_000,
-  })) as { answer?: unknown; items?: unknown; sources?: unknown }
-  // Anything but a string answer and an array of sources is a failure, not an answer; a non-string source is dropped.
-  if (typeof reply.answer !== 'string' || !Array.isArray(reply.sources)) throw new Error('the answer model replied out of shape')
-  // `items` is required by the schema, but a reply without it is read as prose rather than failed:
-  // the answer is still checked in full, and only its list form is lost. A non-string entry is dropped.
-  const items = Array.isArray(reply.items) ? reply.items.filter((item): item is string => typeof item === 'string') : []
-  return { answer: reply.answer, items, sources: reply.sources.filter((id): id is string => typeof id === 'string') }
+  })
 }
