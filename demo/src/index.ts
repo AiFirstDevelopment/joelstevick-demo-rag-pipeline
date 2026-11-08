@@ -5,10 +5,11 @@
 // The deployed demo Worker: Claude on Joel's key, bge-m3 through Workers AI, and
 // the demo's own Vectorize index. The routes are in app.ts.
 import { createApp } from './app'
-import { claudeFor, embedFor, vectorsFor } from './models'
+import { claudeFor, claudeStreamFor, embedFor, vectorsFor } from './models'
 
 export default createApp((env) => ({
   claude: claudeFor(env.ANTHROPIC_API_KEY),
+  stream: claudeStreamFor(env.ANTHROPIC_API_KEY),
   embed: embedFor(env.AI),
   vectors: vectorsFor(env.VECTORS),
 }))

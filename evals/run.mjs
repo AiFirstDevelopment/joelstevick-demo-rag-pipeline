@@ -232,7 +232,8 @@ function score(c, asked, given, calls, ms, usd) {
   // The full record goes into results.json; `summary` is the one line printed per case.
   return {
     id: c.id, corpus: c.corpus, category: c.category, question: c.question, expected: c.expected_behavior, status,
-    found, answer, refused: body.refused ?? null, http: asked.status,
+    // A stopped answer was answered: what was shown counts, with the reason it stopped.
+    found, answer, refused: body.refused ?? null, stopped: body.stopped ?? null, first_ms: body.first_ms ?? null, http: asked.status,
     facts, retrieval: { pool: pool.length, sources_in_pool: count(pooled), k: given.length, sources_in_context: count(retrieved), per_source: retrieved },
     citations: { cited: cited.length, sources_supported: count(supported), pages: [...new Set(cited.map((s) => `${s.file} p${s.page}`))] },
     forbidden_claims: c.forbidden_claims, model_calls: calls, errors, ms, usd,
@@ -243,7 +244,7 @@ function score(c, asked, given, calls, ms, usd) {
 // Results, and the spend recorded before anything else can fail.
 // The results name the code that produced them; uncommitted changes to the demo or the harness are flagged.
 const git = execFileSync('git', ['rev-parse', '--short', 'HEAD']).toString().trim()
-const dirty = execFileSync('git', ['status', '--porcelain', '--', 'demo', 'evals/worker.ts']).toString().trim() !== ''
+const dirty = execFileSync('git', ['status', '--porcelain', '--', 'demo', 'evals/worker.ts', 'evals/trace.ts']).toString().trim() !== ''
 saveLedger()
 mkdirSync(`evals/runs/${runId}`, { recursive: true })
 // The metadata pins what produced the run (code, cases and corpus hashes, models) and what it cost,
@@ -258,17 +259,25 @@ const meta = {
 writeFileSync(`evals/runs/${runId}/results.json`, JSON.stringify({ meta, results }, null, 2) + '\n')
 // results.md: a header, the tally by status, one table row per case, then every answer for a person to read.
 const tally = (s) => results.filter((r) => r.status === s).length
+// The cases that ran, and the middle value of a list of numbers (the mean of the middle two when even; NaN for none).
+const ran = results.filter((r) => r.status !== 'not run')
+const median = (xs) => {
+  const sorted = [...xs].sort((a, b) => a - b)
+  const middle = Math.floor(sorted.length / 2)
+  return sorted.length % 2 === 1 ? sorted[middle] : Math.round(((sorted[middle - 1] + sorted[middle]) / 2) * 10000) / 10000
+}
 const lines = [
   `# Eval run ${runId}`, '',
   `git ${meta.git} · cases ${meta.cases_hash} · $${meta.usd.toFixed(2)} (ledger $${meta.ledger_total_usd.toFixed(2)} of $${TOTAL_CAP})`, '',
   `pass ${tally('pass')} · fail ${tally('fail')} · review ${tally('review')} · error ${tally('error')} · not run ${tally('not run')} · of ${results.length}`, '',
-  '| case | status | behaviour | facts | sources in pool | sources in context | cited support | ms | $ |', '|---|---|---|---|---|---|---|---|---|',
-  ...results.map((r) => r.status === 'not run' ? `| ${r.id} | not run | | | | | | | |`
-    : `| ${r.id} | ${r.status} | ${r.found ? 'answered' : 'fallback'}${r.refused ? ` (${r.refused})` : ''} | ${r.facts.filter((f) => f.met).length}/${r.facts.length} | ${r.retrieval.sources_in_pool} of ${r.retrieval.pool} | ${r.retrieval.sources_in_context} of k=${r.retrieval.k} | ${r.citations.sources_supported} | ${r.ms} | ${r.usd.toFixed(4)} |`),
+  `median a question: $${median(ran.map((r) => r.usd)).toFixed(4)} · ${median(ran.map((r) => r.ms))} ms · first sentence ${median(ran.filter((r) => r.first_ms !== null && r.first_ms !== undefined).map((r) => r.first_ms))} ms`, '',
+  '| case | status | behaviour | facts | sources in pool | sources in context | cited support | first sentence ms | ms | $ |', '|---|---|---|---|---|---|---|---|---|---|',
+  ...results.map((r) => r.status === 'not run' ? `| ${r.id} | not run | | | | | | | | |`
+    : `| ${r.id} | ${r.status} | ${r.found ? 'answered' : 'fallback'}${r.refused ? ` (${r.refused})` : ''}${r.stopped ? ` (stopped: ${r.stopped})` : ''} | ${r.facts.filter((f) => f.met).length}/${r.facts.length} | ${r.retrieval.sources_in_pool} of ${r.retrieval.pool} | ${r.retrieval.sources_in_context} of k=${r.retrieval.k} | ${r.citations.sources_supported} | ${r.first_ms ?? ''} | ${r.ms} | ${r.usd.toFixed(4)} |`),
   '', '## Answers', '',
   ...results.filter((r) => r.status !== 'not run').flatMap((r) => [`**${r.id}** ${r.question}`, '', `> ${r.answer.replace(/\n/g, ' ')}`, '', r.errors.length ? `errors: ${r.errors.join('; ')}\n` : '']),
 ]
 writeFileSync(`evals/runs/${runId}/results.md`, lines.join('\n'))
 // The tally line, the spend and the report's path, printed last.
-console.log(`\n${lines[4]}\n$${meta.usd.toFixed(4)} this run; ledger $${ledger.total_usd.toFixed(2)} of $${TOTAL_CAP}\nevals/runs/${runId}/results.md`)
+console.log(`\n${lines[4]}\n${lines[6]}\n$${meta.usd.toFixed(4)} this run; ledger $${ledger.total_usd.toFixed(2)} of $${TOTAL_CAP}\nevals/runs/${runId}/results.md`)
 process.exit(0)

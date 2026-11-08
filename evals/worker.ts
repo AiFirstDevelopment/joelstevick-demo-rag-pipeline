@@ -5,14 +5,15 @@
 // The demo Worker as the eval harness runs it: demo/src/app.ts with the same models
 // the deployed one uses (Claude on the key in evals/.dev.vars, bge-m3 through Workers
 // AI, the eval's own Vectorize index), plus five routes for the runner:
-//   GET  /eval/trace   the model calls since the last read: model, tokens, and for the
+//   GET  /eval/trace   the model calls since the last read (a streamed one once it has ended): model, tokens, and for the
 //                      answer model the passage ids it was given
 //   POST /eval/reset   every demo's questions back to zero, so one demo serves every case
 //   POST /eval/forget  deletes a demo's vectors from the eval index
 //   POST /eval/chunks  the stored chunks with the ids given, for scoring what the answer saw
 //   POST /eval/indexed how many of a demo's vectors Vectorize has finished writing
 import { createApp, type Env } from '../demo/src/app'
-import { ANSWER_MODEL, RERANK_MODEL, claudeFor, embedFor, vectorsFor } from '../demo/src/models'
+import { ANSWER_MODEL, RERANK_MODEL, claudeFor, claudeStreamFor, embedFor, vectorsFor } from '../demo/src/models'
+import { usageOfStream } from './trace'
 
 // One traced model call, as /eval/trace returns it: `pool` on rerank calls, `given` on answer calls.
 interface Call {
@@ -48,6 +49,62 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({ model: sent.model, input_tokens: 0, output_tokens: 0, stop_reason: null, ms: Date.now() - started, error: String(error) })
     throw error
   }
+  // The answer passages the prompt was given, and the reranker's pool, read back out of the request.
+  const describe = (call: Call) => {
+    // The reranker's passages back out of its prompt: split at the blank line before each `[n] ` label, labels stripped, in pool order.
+    if (sent.model === RERANK_MODEL) call.pool = (sent.messages[0]?.content ?? '').split('Passages:\n\n')[1]?.split(/\n\n(?=\[\d+\] )/).map((p) => p.replace(/^\[\d+\] /, '')) ?? []
+    // The answer prompt labels each passage `[id] (file, page)`: those ids are what the answer was given.
+    if (sent.model === ANSWER_MODEL) call.given = [...(sent.messages[0]?.content ?? '').matchAll(/^\[([^\]]+)\] \(/gm)].map((m) => m[1])
+    calls.push(call)
+  }
+  if (response.ok && response.body !== null && (response.headers.get('content-type') ?? '').includes('text/event-stream')) {
+    // A streamed reply (the answer model, `stream: true`). Its token counts are not in a JSON body
+    // but in two of its events, message_start (input) and message_delta (output), so the whole
+    // stream has to be seen to trace the call.
+    //
+    // It is read as it passes through to the caller, never from a clone. The first version did
+    // `response.clone().text()`, and a cloned body is a tee: the runtime holds the caller's half
+    // back until the trace's half has been consumed, so the demo saw the whole reply arrive at
+    // once and the eval measured the time to the first sentence as equal to the total. A
+    // TransformStream between Anthropic and the caller sees each chunk and passes it straight on.
+    const decoder = new TextDecoder()
+    let seen = ''
+    let traced = false
+    const trace = () => {
+      if (traced) return
+      traced = true
+      const usage = usageOfStream(seen + decoder.decode())
+      describe({ model: sent.model, input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, stop_reason: usage.stop_reason, ms: Date.now() - started, reply: usage.reply, ...(usage.error ? { error: usage.error } : {}) })
+    }
+    const passing = new TransformStream<Uint8Array, Uint8Array>({
+      // Every chunk is copied into `seen` (decoded with `stream: true`, so a character split
+      // across chunks is joined) and enqueued unchanged for the caller.
+      transform(chunk, controller) {
+        seen += decoder.decode(chunk, { stream: true })
+        controller.enqueue(chunk)
+      },
+      // `flush` runs when Anthropic's stream ends: the call is traced from everything that passed.
+      flush: trace,
+    })
+    // When the caller cancels (the demo stops reading after a refused sentence), `pipeTo` rejects
+    // and, with `preventCancel`, leaves Anthropic's stream open: the rest is read here, so the
+    // trace still gets the final message_delta and the ledger counts every token the call cost.
+    const body = response.body
+    body.pipeTo(passing.writable, { preventCancel: true }).catch(async () => {
+      const reader = body.getReader()
+      try {
+        for (;;) {
+          const { value, done } = await reader.read()
+          if (done) break
+          seen += decoder.decode(value, { stream: true })
+        }
+      } catch {
+        // A dropped connection: trace what arrived.
+      }
+      trace()
+    })
+    return new Response(passing.readable, response)
+  }
   // `clone()`, so the body is read here and still readable by the caller.
   const body = (await response.clone().json().catch(() => ({}))) as {
     content?: { type: string; text?: string }[]
@@ -66,23 +123,20 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   // An HTTP error is recorded with Anthropic's message; the reply's text is kept for reading a case back.
   if (!response.ok) call.error = `${response.status} ${body.error?.message ?? ''}`
   call.reply = (body.content ?? []).filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
-  // The reranker's passages back out of its prompt: split at the blank line before each `[n] ` label, labels stripped, in pool order.
-  if (sent.model === RERANK_MODEL) call.pool = (sent.messages[0]?.content ?? '').split('Passages:\n\n')[1]?.split(/\n\n(?=\[\d+\] )/).map((p) => p.replace(/^\[\d+\] /, '')) ?? []
-  // The answer prompt labels each passage `[id] (file, page)`: those ids are what the answer was given.
-  if (sent.model === ANSWER_MODEL) call.given = [...(sent.messages[0]?.content ?? '').matchAll(/^\[([^\]]+)\] \(/gm)].map((m) => m[1])
-  calls.push(call)
+  describe(call)
   return response
 }
 
 // The demo's own app with the real models, built as demo/src/index.ts builds it, from this Worker's bindings.
 const app = createApp((env) => ({
   claude: claudeFor(env.ANTHROPIC_API_KEY),
+  stream: claudeStreamFor(env.ANTHROPIC_API_KEY),
   embed: embedFor(env.AI),
   vectors: vectorsFor(env.VECTORS),
 }))
 
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url)
     // `splice(0)` hands over the calls so far and empties the list: each read is "since the last".
     if (pathname === '/eval/trace') return Response.json(calls.splice(0))
@@ -119,6 +173,6 @@ export default {
       return Response.json({ chunks: ids.length, ready })
     }
     // Every other path is the demo's own route, served unchanged.
-    return app.fetch(request, env)
+    return app.fetch(request, env, ctx)
   },
 }

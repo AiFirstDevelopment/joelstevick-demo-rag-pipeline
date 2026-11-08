@@ -6,10 +6,11 @@
 import { env } from 'cloudflare:test'
 import { beforeEach, describe, expect, it } from 'vitest'
 import schema from '../schema.sql?raw'
+import { idsIn, units, unmarked } from '../src/check'
 import { createApp, NOT_FOUND, type Env } from '../src/app'
-import { ANSWER_MODEL, claudeFor, RERANK_MODEL, type Claude } from '../src/models'
+import { ANSWER_MODEL, claudeFor, claudeStreamFor, RERANK_MODEL, type Claude, type ClaudeStream } from '../src/models'
 import { WIDEN_CHARS } from '../src/widen'
-import { claude as scriptedClaude, embed, ScriptedVectors, scriptedModels } from '../../tests/support/scripted'
+import { claude as scriptedClaude, embed, ScriptedVectors, scriptedModels, stream as scriptedStream } from '../../tests/support/scripted'
 
 let vectors: ScriptedVectors
 let mail: string[]
@@ -209,17 +210,18 @@ describe('the check', () => {
 // Settings the eval harness chose (evals/JOURNAL.md), held here so they cannot drift back.
 describe('the tuned model calls', () => {
   it('asks the reranker at low effort with room to finish, and gives the answer room to think', async () => {
-    const sent: { model: string; max_tokens: number; output_config: { effort?: string } }[] = []
+    const sent: { model: string; max_tokens: number; stream?: boolean; output_config?: { effort?: string } }[] = []
     const realFetch = globalThis.fetch
     globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
       const body = JSON.parse(String(init?.body))
       sent.push(body)
       const id = /^\[([^\]]+)\] \(/m.exec(body.messages[0].content)?.[1]
-      const text = body.model === RERANK_MODEL ? '{"ranked":[0]}' : JSON.stringify({ answer: 'Refunds are paid within 30 days of the request.', sources: [id] })
-      return Response.json({ content: [{ type: 'text', text }], stop_reason: 'end_turn' })
+      if (body.model === RERANK_MODEL) return Response.json({ content: [{ type: 'text', text: '{"ranked":[0]}' }], stop_reason: 'end_turn' })
+      const delta = { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: `Refunds are paid within 30 days of the request [${id}].` } }
+      return new Response(`event: content_block_delta\ndata: ${JSON.stringify(delta)}\n\nevent: message_stop\ndata: {"type":"message_stop"}\n\n`, { headers: { 'Content-Type': 'text/event-stream' } })
     }) as typeof fetch
     try {
-      app = createApp(() => ({ claude: claudeFor('test-key'), embed, vectors }))
+      app = createApp(() => ({ claude: claudeFor('test-key'), stream: claudeStreamFor('test-key'), embed, vectors }))
       const demo = await newDemo('fp_tuned')
       await upload(demo.key, 'policy.pdf', ['Refunds are paid within 30 days of the request.'])
       const asked = await call('/api/ask', demo.key, { question: 'When are refunds paid?' })
@@ -231,7 +233,8 @@ describe('the tuned model calls', () => {
     const answered = sent.find((body) => body.model === ANSWER_MODEL)
     expect(rerank).toMatchObject({ max_tokens: 1024, output_config: { effort: 'low' } })
     expect(answered?.max_tokens).toBe(2000)
-    expect(answered?.output_config.effort).toBeUndefined()
+    expect(answered?.stream).toBe(true)
+    expect(answered?.output_config?.effort).toBeUndefined()
   })
 
   it('gives the reranker 48 passages to choose from', async () => {
@@ -253,11 +256,11 @@ describe('widening', () => {
   /** The answer model's prompt for each ask, with the scripted models and no vectors, so the pool is BM25's. */
   function capturing(): string[] {
     const prompts: string[] = []
-    const answering: Claude = async (request) => {
+    const answering: ClaudeStream = (request) => {
       if (request.model === ANSWER_MODEL) prompts.push(request.user)
-      return scriptedClaude(request)
+      return scriptedStream(request)
     }
-    app = createApp(() => ({ claude: answering }))
+    app = createApp(() => ({ claude: scriptedClaude, stream: answering }))
     return prompts
   }
   /** The passages of an answer prompt, as [id, header, text]. */
@@ -361,9 +364,9 @@ describe('widening', () => {
 
   it('is on in the deployed demo, and { widen: false } turns it off', async () => {
     const prompts: string[] = []
-    const answering: Claude = async (request) => (request.model === ANSWER_MODEL && prompts.push(request.user), scriptedClaude(request))
+    const answering: ClaudeStream = (request) => (request.model === ANSWER_MODEL && prompts.push(request.user), scriptedStream(request))
     for (const options of [undefined, { widen: false }]) {
-      app = createApp(() => ({ claude: answering }), options)
+      app = createApp(() => ({ claude: scriptedClaude, stream: answering }), options)
       const demo = await newDemo(`fp_widen_switch_${options === undefined ? 'on' : 'off'}`)
       await upload(demo.key, 'policy.pdf', [RULE, EXCEPTION, ...filler(0, 14)])
       await call('/api/ask', demo.key, { question: 'What does the zorblax rule cover? [span]' })
@@ -398,7 +401,8 @@ describe('kept questions and archived text', () => {
     const rows = await questions(demo.id)
     expect(rows.map((q) => [q.answer, q.fallback, q.checked, q.keep])).toEqual([
       ['Refunds are paid within 30 days of the request.', null, 1, 1],
-      ['Refunds are paid within 30 days of the request.', 'refused', 0, 1],
+      // A refused answer is recorded as the model wrote it, its citations included.
+      ['Refunds are paid within 30 days of the request. [nowhere-0]', 'refused', 0, 1],
       [null, 'trouble', 0, 1],
     ])
     expect(JSON.parse(rows[0].sources as string)).toEqual([expect.objectContaining({ file: 'manual.pdf', page: 2, passage: 'Refunds are paid within 30 days of the request.' })])
@@ -574,5 +578,163 @@ describe('removing a file', () => {
     expect((await remove(demo.key, '')).status).toBe(404)
     expect(await room(demo.id)).toEqual({ files: 1, pages: 1, chars: 4 })
     expect((await call('/api/session', demo.key)).body.files).toHaveLength(1)
+  })
+})
+
+// docs/plans/demo-stream.md: the answer is checked and released a sentence (or list item) at a time.
+describe('the streamed answer', () => {
+  const POLICY = ['Refunds are paid within 30 days of the request. Ask the front desk for the form.']
+  /** An ask as the page sends it: the events of the stream, in order, with their data. */
+  async function streamed(key: string, question: string) {
+    const waits: Promise<unknown>[] = []
+    const response = await app.fetch(new Request('https://demo/api/ask', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', Accept: 'text/event-stream', 'X-Demo-Key': key }, body: JSON.stringify({ question }),
+    }), testEnv, { waitUntil: (p: Promise<unknown>) => waits.push(p), passThroughOnException: () => {} } as unknown as ExecutionContext)
+    const text = await response.text()
+    await Promise.all(waits)
+    const events = text.split('\n\n').filter((b) => b.trim()).map((b) => ({ event: /^event: (.*)$/m.exec(b)![1], data: JSON.parse(/^data: (.*)$/m.exec(b)![1]) }))
+    return { status: response.status, type: response.headers.get('Content-Type'), id: response.headers.get('X-Question-Id'), events }
+  }
+  const row = (id: string) => env.DB.prepare('SELECT answer, checked, fallback, ms, first_ms FROM questions WHERE id = ?').bind(id).first<Record<string, unknown>>()
+  const used = async (id: string) => (await env.DB.prepare('SELECT asks_used FROM demos WHERE id = ?').bind(id).first<{ asks_used: number }>())!.asks_used
+
+  it('AC1 AC7: one ask streams its stages and sentences, and the same ask in JSON is today\'s body plus first_ms', async () => {
+    const demo = await newDemo('fp_stream_shape')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const s = await streamed(demo.key, 'When are refunds paid?')
+    expect(s.type).toBe('text/event-stream; charset=utf-8')
+    expect(s.events.map((e) => e.event)).toEqual(['stage', 'stage', 'stage', 'unit', 'done'])
+    expect(s.events.slice(0, 3).map((e) => e.data.stage)).toEqual(['retrieving', 'reranking', 'writing'])
+    expect(s.events[3].data).toEqual({ kind: 'sentence', text: 'Refunds are paid within 30 days of the request.', sources: [expect.any(String)] })
+    expect(s.id).toBeTruthy()
+    expect(await row(s.id!)).toMatchObject({ checked: 1, fallback: null, answer: 'Refunds are paid within 30 days of the request.' })
+    const json = await call('/api/ask', demo.key, { question: 'When are refunds paid?' })
+    expect(json.status).toBe(200)
+    expect(json.body).toMatchObject({ answer: 'Refunds are paid within 30 days of the request.', sources: [expect.objectContaining({ file: 'policy.pdf', page: 1 })], found: true, left: 8, first_ms: expect.any(Number) })
+    expect(json.body.stopped).toBeUndefined()
+  })
+
+  it('AC4, guard 5: a later sentence that fails stops the answer there, keeps what was shown, counts the question and records it', async () => {
+    const demo = await newDemo('fp_stream_stop')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const s = await streamed(demo.key, 'When are refunds paid? [stop-midway]')
+    expect(s.events.map((e) => e.event)).toEqual(['stage', 'stage', 'stage', 'unit', 'stopped', 'done'])
+    expect(s.events[4].data).toEqual({ reason: 'uncited' })
+    expect(JSON.stringify(s.events.filter((e) => e.event === 'unit'))).not.toContain('Ask the front desk')
+    expect(await row(s.id!)).toMatchObject({ checked: 1, fallback: 'stopped', answer: 'Refunds are paid within 30 days of the request.' })
+    expect(await used(demo.id)).toBe(1)
+    const session = await call('/api/session', demo.key)
+    expect(session.body.history).toEqual([expect.objectContaining({ question: 'When are refunds paid? [stop-midway]', answer: 'Refunds are paid within 30 days of the request.' })])
+    const json = await call('/api/ask', demo.key, { question: 'When are refunds paid? [stop-midway]' })
+    expect(json.body).toMatchObject({ found: true, stopped: 'uncited', answer: 'Refunds are paid within 30 days of the request.', left: 8 })
+  })
+
+  it('AC3 AC5, guards 1 and 3: a first sentence that fails is the fallback in both renderings, and nothing of it is sent', async () => {
+    const demo = await newDemo('fp_stream_first')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const s = await streamed(demo.key, 'How much? [invent-figure]')
+    expect(s.events.map((e) => e.event)).toEqual(['stage', 'stage', 'stage', 'fallback'])
+    expect(s.events[3].data).toEqual({ answer: NOT_FOUND, found: false, refused: 'ungrounded', left: 9 })
+    expect(JSON.stringify(s.events)).not.toContain('4,200')
+    expect(await row(s.id!)).toMatchObject({ checked: 0, fallback: 'refused', first_ms: null })
+    const json = await call('/api/ask', demo.key, { question: 'How much? [invent-figure]' })
+    expect(json.body).toMatchObject({ answer: NOT_FOUND, sources: [], found: false, refused: 'ungrounded' })
+  })
+
+  it('AC5: a model that writes nothing is the fallback, refused as empty', async () => {
+    const demo = await newDemo('fp_stream_empty')
+    await upload(demo.key, 'cv.pdf', ['Engineer at Acme, 2010 to 2015.'])
+    const json = await call('/api/ask', demo.key, { question: 'What role did he hold at Nowhere?' })
+    expect(json.body).toMatchObject({ answer: NOT_FOUND, found: false, refused: 'empty' })
+  })
+
+  it('AC6, guard 6: a fifth sentence is never shown; the answer stops at four', async () => {
+    const demo = await newDemo('fp_stream_five')
+    await upload(demo.key, 'steps.pdf', ['Unlock the gate. Sweep the dock. Check the forklift. Sign the log. Open the doors.'])
+    const s = await streamed(demo.key, 'What are the steps? [five-sentences]')
+    expect(s.events.filter((e) => e.event === 'unit').map((e) => e.data.text)).toEqual(['Unlock the gate.', 'Sweep the dock.', 'Check the forklift.', 'Sign the log.'])
+    expect(s.events.find((e) => e.event === 'stopped')?.data).toEqual({ reason: 'overlong' })
+  })
+
+  it('AC9, guard 7: the model failing after a sentence is shown is a stop, not a refund', async () => {
+    const demo = await newDemo('fp_stream_die')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const json = await call('/api/ask', demo.key, { question: 'When are refunds paid? [die-midway]' })
+    expect(json.status).toBe(200)
+    expect(json.body).toMatchObject({ found: true, stopped: 'trouble', answer: 'Refunds are paid within 30 days of the request.', left: 9 })
+    expect(await used(demo.id)).toBe(1)
+    const down = await streamed(demo.key, 'When are refunds paid? [model-down]')
+    expect(down.status).toBe(200)
+    expect(down.events.at(-1)).toEqual({ event: 'error', data: { error: expect.stringContaining('try that question again'), left: 9 } })
+    expect(await used(demo.id)).toBe(1)
+  })
+
+  it('guard 10: first_ms is the time to the first sentence, not the whole answer', async () => {
+    const demo = await newDemo('fp_stream_slow')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const s = await streamed(demo.key, 'When are refunds paid? [slow]')
+    const done = s.events.find((e) => e.event === 'done')!.data
+    expect(done.first_ms).toEqual(expect.any(Number))
+    expect(done.ms - done.first_ms).toBeGreaterThanOrEqual(1500)
+    expect(await row(s.id!)).toMatchObject({ first_ms: done.first_ms })
+  }, 10_000)
+
+  it('guard 2: citation markers never reach the shown text, and the digits in ids are not read as figures', async () => {
+    const demo = await newDemo('fp_stream_marks')
+    await upload(demo.key, 'cv.pdf', ['Engineer at Acme, 2010 to 2015.', 'Designer at Globex, 2016 to 2020.'])
+    const json = await call('/api/ask', demo.key, { question: 'what jobs has he held' })
+    expect(json.body.found).toBe(true)
+    expect(json.body.answer).toBe('He has held these jobs:')
+    expect(json.body.items).toEqual(['Engineer at Acme, 2010 to 2015', 'Designer at Globex, 2016 to 2020'])
+    for (const text of [json.body.answer, ...json.body.items]) expect(text).not.toContain('[')
+  })
+})
+
+// Joel, 2026-10-30: a sentence the model wrote without ids is held and released with the next one that has them.
+describe('a sentence without its own ids', () => {
+  const POLICY = ['Refunds are paid within 30 days of the request. Ask the front desk for the form.']
+  it('fix: is released with the next cited sentence, checked against its passages', async () => {
+    const demo = await newDemo('fp_held_open')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const json = await call('/api/ask', demo.key, { question: 'Are refunds paid? [uncited-opener]' })
+    expect(json.body).toMatchObject({ found: true, answer: 'Yes. Refunds are paid within 30 days of the request.' })
+    expect(json.body.stopped).toBeUndefined()
+  })
+
+  it('fix: is never shown when a figure in it is in none of the passages the next sentence cites', async () => {
+    const demo = await newDemo('fp_held_figure')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const json = await call('/api/ask', demo.key, { question: 'What does it cost? [uncited-figure]' })
+    expect(json.body).toMatchObject({ found: false, answer: NOT_FOUND, refused: 'ungrounded' })
+  })
+
+  it('fix: ending the reply, nothing vouches for it, so the answer stops before it', async () => {
+    const demo = await newDemo('fp_held_end')
+    await upload(demo.key, 'policy.pdf', POLICY)
+    const json = await call('/api/ask', demo.key, { question: 'When are refunds paid? [uncited-end]' })
+    expect(json.body).toMatchObject({ found: true, stopped: 'uncited', answer: 'Refunds are paid within 30 days of the request.' })
+  })
+})
+
+describe('units of a streamed reply', () => {
+  const TEXT = 'Contents: 1. Talk; 2. Hands [ab-1]. The fee is $5 [ab-1, cd-2].\nThese are the steps [ab-1]:\n- Open the gate [ab-1]\n- Close it. Then lock it [cd-2]\n'
+  it('splits sentences as `sentences` does, keeps trailing markers with the sentence before them, and reads list lines', () => {
+    expect(units(TEXT, true)).toEqual([
+      { kind: 'sentence', raw: 'Contents: 1. Talk; 2. Hands [ab-1].' },
+      { kind: 'sentence', raw: 'The fee is $5 [ab-1, cd-2].' },
+      { kind: 'lead', raw: 'These are the steps [ab-1]:' },
+      { kind: 'item', raw: 'Open the gate [ab-1]' },
+      { kind: 'item', raw: 'Close it. Then lock it [cd-2]' },
+    ])
+    expect(unmarked('The fee is $5 [ab-1, cd-2].')).toBe('The fee is $5.')
+    expect(idsIn('The fee is $5 [ab-1, cd-2].')).toEqual(['ab-1', 'cd-2'])
+  })
+
+  it('never changes a unit once it is complete, however the text arrives', () => {
+    const final = units(TEXT, true)
+    for (let i = 0; i <= TEXT.length; i++) {
+      const sofar = units(TEXT.slice(0, i), false)
+      expect(sofar).toEqual(final.slice(0, sofar.length))
+    }
   })
 })
