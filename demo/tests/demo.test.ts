@@ -9,6 +9,7 @@ import schema from '../schema.sql?raw'
 import { idsIn, units, unmarked } from '../src/check'
 import { createApp, NOT_FOUND, type Env } from '../src/app'
 import { ANSWER_MODEL, claudeFor, claudeStreamFor, RERANK_MODEL, type Claude, type ClaudeStream } from '../src/models'
+import { bm25, words, type Chunk } from '../src/retrieval'
 import { WIDEN_CHARS } from '../src/widen'
 import { claude as scriptedClaude, embed, ScriptedVectors, scriptedModels, stream as scriptedStream } from '../../tests/support/scripted'
 
@@ -204,6 +205,26 @@ describe('the check', () => {
     await upload(demo.key, 'policy.pdf', ['Refunds are paid within 30 days.'])
     const asked = await call('/api/ask', demo.key, { question: 'When are refunds paid? [cite-unretrieved]' })
     expect(asked.body).toMatchObject({ answer: NOT_FOUND, sources: [], found: false })
+  })
+})
+
+describe('word endings in search', () => {
+  const chunk = (id: string, text: string): Chunk => ({ id, file: 'f.pdf', page: 1, text })
+
+  it('finds "invoice" from "invoicing" and "bill" from "billed"', () => {
+    const chunks = [chunk('inv', 'Send the invoice by Friday.'), chunk('bill', 'Each bill is due monthly.'), chunk('other', 'Lunch is at noon.')]
+    expect(bm25(chunks, 'How does invoicing work?', 5).map((c) => c.id)).toEqual(['inv'])
+    expect(bm25(chunks, 'When am I billed?', 5).map((c) => c.id)).toEqual(['bill'])
+  })
+
+  it('brings every form of a word to one token', () => {
+    expect(new Set(words('invoice invoices invoiced invoicing')).size).toBe(1)
+    expect(new Set(words('bill bills billed billing')).size).toBe(1)
+    expect(new Set(words('ship shipped shipping')).size).toBe(1)
+  })
+
+  it('leaves short and vowel-less stems whole', () => {
+    expect(words('need thing string bus red')).toEqual(['need', 'thing', 'string', 'bus', 'red'])
   })
 })
 

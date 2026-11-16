@@ -31,13 +31,31 @@ const STOP = new Set(
   'a an and are as at be by can could do does for from how i if in is it its me my of on or should so that the their them there this to was what when where which who why will with would you your'.split(' '),
 )
 
-/** A text as the tokens BM25 compares: lower-cased runs of letters and digits, stop words out, a plain plural's "s" off. */
+/**
+ * A word cut to the stem its forms share: "invoices", "invoiced", "invoicing" and "invoice" all become "invoic";
+ * "billed", "billing" and "bills" become "bill". Applied to question and chunks alike, so only agreement matters.
+ */
+function stem(word: string): string {
+  // "invoices" must find "invoice"; "bus" must not become "bu".
+  if (word.length > 3 && word.endsWith('s') && !word.endsWith('ss')) word = word.slice(0, -1)
+  // -ing and -ed come off only when a stem of three letters with a vowel is left: "billed" -> "bill", but "string",
+  // "thing" and "need" stay whole.
+  const suffix = word.endsWith('ing') ? 3 : word.endsWith('ed') ? 2 : 0
+  if (suffix > 0) {
+    const rest = word.slice(0, -suffix)
+    if (rest.length >= 3 && /[aeiouy]/.test(rest)) {
+      // "shipped" -> "ship", but "billed" keeps its "ll" (and "missed" its "ss", "buzzed" its "zz").
+      return /([^aeiouylsz])\1$/.test(rest) ? rest.slice(0, -1) : rest
+    }
+  }
+  // A silent final "e" off, so "invoice" meets "invoicing" at "invoic"; "use" stays, being too short to cut.
+  return word.length > 3 && word.endsWith('e') && !word.endsWith('ee') ? word.slice(0, -1) : word
+}
+
+/** A text as the tokens BM25 compares: lower-cased runs of letters and digits, stop words out, each cut to its stem. */
 export function words(text: string): string[] {
   // Anything but a letter or digit separates tokens, so punctuation and case never stop a match.
-  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
-    .filter((word) => !STOP.has(word))
-    // "invoices" must find "invoice"; "bus" must not become "bu".
-    .map((word) => (word.length > 3 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word))
+  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? []).filter((word) => !STOP.has(word)).map(stem)
 }
 
 /** The chunks sharing words with `question`, best first. A chunk with no word of the question is never returned. */
