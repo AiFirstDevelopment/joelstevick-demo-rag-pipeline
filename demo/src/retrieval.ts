@@ -33,8 +33,9 @@ const STOP = new Set(
 
 /** A text as the tokens BM25 compares: lower-cased runs of letters and digits, stop words out, a plain plural's "s" off. */
 export function words(text: string): string[] {
-  // Anything but a letter or digit separates tokens, so punctuation and case never stop a match.
-  return (text.toLowerCase().match(/[a-z0-9]+/g) ?? [])
+  // An apostrophe inside a word (' or ’) is dropped first, so "don't", "don’t" and "dont" are one token.
+  // Anything else but a letter or digit separates tokens, so punctuation and case never stop a match.
+  return (text.toLowerCase().replace(/(?<=[a-z0-9])['’](?=[a-z0-9])/g, '').match(/[a-z0-9]+/g) ?? [])
     .filter((word) => !STOP.has(word))
     // "invoices" must find "invoice"; "bus" must not become "bu".
     .map((word) => (word.length > 3 && word.endsWith('s') && !word.endsWith('ss') ? word.slice(0, -1) : word))

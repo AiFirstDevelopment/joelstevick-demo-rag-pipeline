@@ -10,6 +10,7 @@ import { idsIn, units, unmarked } from '../src/check'
 import { createApp, NOT_FOUND, type Env } from '../src/app'
 import { ANSWER_MODEL, claudeFor, claudeStreamFor, RERANK_MODEL, type Claude, type ClaudeStream } from '../src/models'
 import { WIDEN_CHARS } from '../src/widen'
+import { bm25, words, type Chunk } from '../src/retrieval'
 import { claude as scriptedClaude, embed, ScriptedVectors, scriptedModels, stream as scriptedStream } from '../../tests/support/scripted'
 
 let vectors: ScriptedVectors
@@ -736,5 +737,27 @@ describe('units of a streamed reply', () => {
       const sofar = units(TEXT.slice(0, i), false)
       expect(sofar).toEqual(final.slice(0, sofar.length))
     }
+  })
+})
+
+describe('apostrophes inside words', () => {
+  const chunk = (id: string, text: string): Chunk => ({ id, file: 'f', page: 1, text })
+
+  it('drops a straight or curly apostrophe inside a word, so a contraction is one token', () => {
+    expect(words("don't")).toEqual(['dont'])
+    expect(words('don’t')).toEqual(['dont'])
+    expect(words('dont')).toEqual(['dont'])
+    expect(words("Can't renew")).toEqual(['cant', 'renew'])
+  })
+
+  it('still separates on an apostrophe that is not inside a word', () => {
+    expect(words("'quoted' ends'")).toEqual(['quoted', 'end'])
+  })
+
+  it("finds don't and don’t from a search for dont, and the other way round", () => {
+    const chunks = [chunk('a', "You don't pay twice."), chunk('b', 'You don’t pay twice.'), chunk('c', 'Pay the fee.')]
+    expect(bm25(chunks, 'dont', 10).map((c) => c.id).sort()).toEqual(['a', 'b'])
+    expect(bm25([chunk('d', 'You dont pay twice.')], "don't", 10).map((c) => c.id)).toEqual(['d'])
+    expect(bm25([chunk('e', 'You dont pay twice.')], 'don’t', 10).map((c) => c.id)).toEqual(['e'])
   })
 })
