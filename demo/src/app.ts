@@ -20,6 +20,9 @@ import { chunkPage } from './chunks'
 import { ANSWER_CHUNKS, answer, rerank, type Models } from './models'
 import { fuseKeywordAndVector, type Chunk } from './retrieval'
 import { widen } from './widen'
+import { oauthRoute, grantsRoute, revokeGrants, appsOf, MCP_PATHS } from './oauth'
+import { forgetHits } from './mcp'
+import { dailyHealth, healthRoute } from './health'
 
 export interface Env {
   DB: D1Database
@@ -27,6 +30,10 @@ export interface Env {
   AI?: Ai
   VECTORS?: VectorizeIndex
   ANTHROPIC_API_KEY?: string
+  /** '0' turns the daily canary off (demo/src/health.ts); anything else, or unset, leaves it on. */
+  CANARY_ENABLED?: string
+  /** Where the OAuth library keeps the MCP server's clients, grants and tokens (demo/src/oauth.ts). */
+  OAUTH_KV?: KVNamespace
 }
 
 /** One demo's allowance: questions asked, PDFs, pages, and characters of text across all its files. */
@@ -50,7 +57,7 @@ const MAX_QUESTION = 500
 const EMBED_BATCH = 50
 
 /** The columns of a demo's row the routes read: its id, what it has used, and who it is for. */
-interface Demo {
+export interface Demo {
   id: string
   asks_used: number
   files: number
@@ -61,12 +68,12 @@ interface Demo {
   cleared_at: string | null
 }
 
-function json(status: number, body: unknown, extra: Record<string, string> = {}): Response {
+export function json(status: number, body: unknown, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...extra } })
 }
 
 /** What the site reads off an upload's or a question's answer to record the event; it never reaches the browser. */
-function about(demo: Demo, question?: string): Record<string, string> {
+export function about(demo: Demo, question?: string): Record<string, string> {
   // The address is the part of "Name <address>" inside the angle brackets; with none, no email header is sent.
   const email = /<([^<>]+)>$/.exec(demo.contact ?? '')?.[1] ?? ''
   return { 'X-Demo-Id': demo.id, ...(email ? { 'X-Demo-Email': email } : {}), ...(question ? { 'X-Question-Id': question } : {}) }
@@ -75,8 +82,17 @@ function about(demo: Demo, question?: string): Record<string, string> {
 /** Whether the site says this visitor may be recorded, so their questions are kept and their pages archived. */
 const keeps = (request: Request) => request.headers.get('X-Demo-Keep') === '1'
 
+/**
+ * Which door a question came through, for `questions.via`: 'mcp' from the MCP server, 'canary' from the daily
+ * canary (both set X-Demo-Via themselves, in process; the page's proxy never forwards the header), else NULL, the page.
+ */
+const via = (request: Request) => {
+  const said = request.headers.get('X-Demo-Via')
+  return said === 'mcp' || said === 'canary' ? said : null
+}
+
 /** The hex SHA-256 of a text. Only a key's hash is stored, so the table alone signs no one in. */
-async function sha256(text: string): Promise<string> {
+export async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
@@ -89,7 +105,7 @@ function randomKey(bytes: number): string {
 }
 
 /** The demo whose key the cookie holds, looked up by the key's hash and nothing else. */
-async function signedIn(request: Request, env: Env): Promise<Demo | null> {
+export async function signedIn(request: Request, env: Env): Promise<Demo | null> {
   const key = request.headers.get('X-Demo-Key') ?? ''
   // No key forwarded means signed out. Otherwise the key's hash names the demo, and a purged demo signs no one in.
   if (key === '') return null
@@ -214,7 +230,7 @@ async function session(demo: Demo, env: Env): Promise<Response> {
  * Stores one PDF's extracted text: its file row, its chunks in D1 and their vectors in Vectorize.
  * The PDF itself never arrives; the browser reads it and sends only each page's text.
  */
-async function upload(request: Request, env: Env, models: Models, demo: Demo): Promise<Response> {
+export async function upload(request: Request, env: Env, models: Models, demo: Demo): Promise<Response> {
   // INGEST 1 · validate the upload: name, page count, each page's text
   const body = (await request.json().catch(() => null)) as { name?: unknown; page_count?: unknown; pages?: unknown } | null
   // The name is trimmed and capped at 200 characters; the page count is the PDF's own, as the browser read it.
@@ -326,7 +342,7 @@ async function upload(request: Request, env: Env, models: Models, demo: Demo): P
  * text given back to the demo's room, and its chunks, file row and archived pages deleted.
  * The questions already asked stay, and the count left is unchanged.
  */
-async function remove(request: Request, env: Env, models: Models, demo: Demo): Promise<Response> {
+export async function remove(request: Request, env: Env, models: Models, demo: Demo): Promise<Response> {
   const body = (await request.json().catch(() => null)) as { name?: unknown } | null
   const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 200) : ''
   // The file's page and character counts are read first, so the same amounts can be given back to the demo.
@@ -382,6 +398,8 @@ async function tellJoel(mailer: Fetcher, demo: Demo, file: string, pages: number
 /** How the ask is assembled. `widen: false` turns widening off; it is on by default. */
 export interface Options {
   widen?: boolean
+  /** The models are scripted (the tests and the canary's tests). */
+  scripted?: boolean
 }
 
 /**
@@ -395,7 +413,7 @@ export interface Options {
  * can be exercised with arrays alone, no bindings, no fakes. `all` is returned too: the caller
  * reads documents whole when they fit and widens the chosen chunks by their neighbours in it.
  */
-async function retrieval(question: string, env: Env, models: Models, demo: Demo): Promise<{ all: Chunk[]; retrieved: Chunk[] }> {
+export async function retrieval(question: string, env: Env, models: Models, demo: Demo): Promise<{ all: Chunk[]; retrieved: Chunk[] }> {
   // `all`: every chunk of this demo's documents, from D1, for keyword search.
   const all = (await env.DB.prepare('SELECT id, file, page, text, seq FROM chunks WHERE demo_id = ? ORDER BY rowid').bind(demo.id).all<Chunk>()).results
   // `near`: vector search. The question is embedded (Workers AI) and Vectorize returns the ids of
@@ -456,7 +474,7 @@ export const STOPPED = "The answer stopped here: its next sentence didn't check 
  * releasing it only when it passes; record the outcome. Validation and the limit answer in JSON
  * before anything is streamed.
  */
-async function ask(request: Request, env: Env, models: Models, demo: Demo, options: Options, ctx?: ExecutionContext): Promise<Response> {
+export async function ask(request: Request, env: Env, models: Models, demo: Demo, options: Options, ctx?: ExecutionContext): Promise<Response> {
   const body = (await request.json().catch(() => ({}))) as { question?: unknown }
   // ASK 1 · validate the question
   const question = typeof body.question === 'string' ? body.question.trim() : ''
@@ -569,8 +587,9 @@ async function* answering(
   // Every outcome is recorded with the id drawn above; a failure to record never costs the visitor the answer.
   const record = async (row: { answer: string | null; sources?: unknown[]; checked?: boolean; fallback: string | null; first_ms?: number | null }) => {
     try {
-      await env.DB.prepare('INSERT INTO questions (id, demo_id, question, answer, sources, checked, fallback, ms, first_ms, keep) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
-        .bind(id, demo.id, question, row.answer, JSON.stringify(row.sources ?? []), row.checked ? 1 : 0, row.fallback, Date.now() - started, row.first_ms ?? null, keeps(request) ? 1 : 0).run()
+      await env.DB.prepare('INSERT INTO questions (id, demo_id, question, answer, sources, checked, fallback, ms, first_ms, keep, via) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+        // `via` is 'mcp' for a question the MCP server asked (it sets X-Demo-Via itself; the page's proxy never forwards it).
+        .bind(id, demo.id, question, row.answer, JSON.stringify(row.sources ?? []), row.checked ? 1 : 0, row.fallback, Date.now() - started, row.first_ms ?? null, keeps(request) ? 1 : 0, via(request)).run()
       return true
     } catch (error) {
       console.error('demo ask: the question could not be recorded', error)
@@ -600,7 +619,7 @@ async function* answering(
   // ASK 5 · rerank (Claude picks the best passages), then widen (add their neighbours)
   // Each chosen chunk with its neighbours, unless every chunk is already given. It passed 5 of 5
   // boundary cases against 4 of 5 for 60% more a question, past the bar set before the runs;
-  // Joel switched it on for the better answers (/stories/widening, evals/runs/*-widen-*).
+  // Joel switched it on for the better answers (/blog/widening, evals/runs/*-widen-*).
   yield { type: 'stage', stage: 'reranking' }
   const chosen = await rerank(models.claude, question, pool)
   // When every chunk is already given there is nothing to widen into.
@@ -755,6 +774,9 @@ export async function purge(env: Env, models: Models): Promise<number> {
       if (models.vectors !== undefined) {
         for (let i = 0; i < ids.length; i += 500) await models.vectors.deleteByIds(ids.slice(i, i + 500))
       }
+      // Every app connected to the demo is disconnected first (demo/src/oauth.ts): if that fails, nothing below
+      // has run, so the demo is still idle with documents and tomorrow's run tries again.
+      await revokeGrants(env, id)
       // One transaction, and only while the demo is still idle: an upload since the SELECT
       // above keeps its chunks and files (searched by their words until it is idle again).
       const idle = `EXISTS (SELECT 1 FROM demos WHERE id = ?1 AND COALESCE(used_at, created_at) <= datetime('now', ?2))`
@@ -800,14 +822,14 @@ interface DemoRow {
   questions: number
 }
 
-/** Every demo, newest first, or those whose contact is `email`: for /admin. */
+/** Every demo, newest first, or those whose contact is `email`: for /admin. The canary (health.ts) is not a visitor's demo and is left out. */
 async function adminDemos(url: URL, env: Env): Promise<Response> {
   const email = (url.searchParams.get('email') ?? '').trim().toLowerCase()
   // Matched as the whole contact or as the address in its angle brackets; an empty email lists every demo.
   const rows = await env.DB.prepare(
     `SELECT d.id, d.engagement_id, d.company, d.contact, d.created_at, d.used_at, d.cleared_at, d.purged_at, d.files, d.pages, d.asks_used,
        (SELECT COUNT(*) FROM questions q WHERE q.demo_id = d.id) AS questions
-     FROM demos d WHERE ?1 = '' OR lower(d.contact) = ?1 OR substr(lower(d.contact), -(length(?1) + 2)) = '<' || ?1 || '>'
+     FROM demos d WHERE d.card_fingerprint IS NOT 'canary:v1' AND (?1 = '' OR lower(d.contact) = ?1 OR substr(lower(d.contact), -(length(?1) + 2)) = '<' || ?1 || '>')
      ORDER BY d.created_at DESC, d.rowid DESC LIMIT 500`,
   ).bind(email).all<DemoRow>()
   return json(200, { demos: rows.results })
@@ -825,7 +847,7 @@ async function adminDemo(id: string, env: Env): Promise<Response> {
     env.DB.prepare('SELECT name, pages, skipped FROM files WHERE demo_id = ? ORDER BY rowid').bind(id),
     env.DB.prepare('SELECT file, page, text FROM chunks WHERE demo_id = ? ORDER BY file, page, seq, rowid').bind(id),
     env.DB.prepare('SELECT file, page, text, archived_at FROM archived_pages WHERE demo_id = ? ORDER BY file, page').bind(id),
-    env.DB.prepare('SELECT id, asked_at, question, answer, sources, checked, fallback, ms, keep FROM questions WHERE demo_id = ? ORDER BY asked_at, rowid').bind(id),
+    env.DB.prepare('SELECT id, asked_at, question, answer, sources, checked, fallback, ms, keep, via FROM questions WHERE demo_id = ? ORDER BY asked_at, rowid').bind(id),
   ])
   type Page = { page: number; text: string }
   // Live text: each file's chunks regrouped by page, so a page reads as its chunks joined in order.
@@ -857,6 +879,8 @@ async function adminDemo(id: string, env: Env): Promise<Response> {
       }
     }),
     questions: (questions.results as Record<string, unknown>[]).map((q) => ({ ...q, sources: JSON.parse(String(q.sources ?? '[]')) })),
+    // The apps connected to this demo through its MCP server (demo/src/oauth.ts); none when it has no store.
+    apps: await appsOf(env, id).catch(() => []),
   })
 }
 
@@ -907,8 +931,11 @@ async function route(request: Request, env: Env, models: Models, options: Option
   if (request.method === 'GET' && pathname === '/internal/admin/demos') return adminDemos(url, env)
   if (request.method === 'GET' && pathname.startsWith('/internal/admin/demos/')) return adminDemo(decodeURIComponent(pathname.slice('/internal/admin/demos/'.length)), env)
   if (request.method === 'GET' && pathname === '/internal/admin/golden') return golden(url, env)
+  if (request.method === 'GET' && pathname === '/internal/admin/health') return healthRoute(env)
   if (pathname === '/internal/demos/which' && request.method === 'POST') return whichDemos(request, env)
   if (pathname === '/internal/demos/open' && request.method === 'POST') return openDemo(request, env)
+  // The MCP server and its OAuth endpoints (README.md, "The MCP server"): the site forwards these with its own URL.
+  if (MCP_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return oauthRoute(request, env, models, options, ctx)
   // Everything below is a visitor's route: the key the proxy forwards must name a live demo.
   const demo = await signedIn(request, env)
   if (demo === null) {
@@ -919,6 +946,7 @@ async function route(request: Request, env: Env, models: Models, options: Option
   if (pathname === '/api/files' && request.method === 'POST') return upload(request, env, models, demo)
   if (pathname === '/api/files' && request.method === 'DELETE') return remove(request, env, models, demo)
   if (pathname === '/api/ask' && request.method === 'POST') return ask(request, env, models, demo, options, ctx)
+  if (pathname === '/api/grants' && (request.method === 'GET' || request.method === 'DELETE')) return grantsRoute(request, env, demo)
   return json(404, { error: 'not found' })
 }
 
@@ -935,9 +963,12 @@ export function createApp(modelsFor: (env: Env) => Models, options: Options = {}
       }
     },
     async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
-      // The daily job: idle demos' documents first, then whatever has passed KEEP_MONTHS.
+      // The daily job: yesterday's health first (README.md, "Watching the pipeline"), while every question of it is
+      // still there; then idle demos' documents, then whatever has passed KEEP_MONTHS.
+      await dailyHealth(env, modelsFor(env), options)
       await purge(env, modelsFor(env))
       await expire(env)
+      await forgetHits(env)
     },
   }
 }

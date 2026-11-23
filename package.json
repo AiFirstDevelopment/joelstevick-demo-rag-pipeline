@@ -11,11 +11,15 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-pool-workers": "0.12.21",
+    "@cloudflare/workers-oauth-provider": "1.2.4",
     "@cloudflare/workers-types": "4.20260702.1",
+    "@modelcontextprotocol/client": "2.4.0",
+    "@modelcontextprotocol/server": "2.4.0",
     "@types/node": "26.4.0",
     "pdfjs-dist": "4.10.38",
     "typescript": "5.8.3",
     "vitest": "3.2.7",
-    "wrangler": "4.86.0"
+    "wrangler": "4.86.0",
+    "zod": "4.6.7"
   }
 }

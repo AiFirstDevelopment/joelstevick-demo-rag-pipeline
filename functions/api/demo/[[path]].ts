@@ -17,9 +17,10 @@ interface Env extends TrackEnv {
   DEMO?: Fetcher;
 }
 
-const ROUTES = new Set(["session", "files", "ask"]);
+// `grants` is the demo page's Connected apps: the apps allowed to use the demo through its MCP server (README.md, "The MCP server").
+const ROUTES = new Set(["session", "files", "ask", "grants"]);
 /** Headers the Worker answers the site with, never passed on to the browser. */
-const INTERNAL = ["X-Demo-Email", "X-Demo-Id", "X-Question-Id"];
+const INTERNAL = ["X-Demo-Email", "X-Demo-Id", "X-Question-Id", "X-Mcp-Grant"];
 
 export const onRequest: PagesFunction<Env, "path"> = async ({ request, env, params, waitUntil }) => {
   const path = Array.isArray(params.path) ? params.path.join("/") : String(params.path ?? "");
@@ -45,6 +46,8 @@ export const onRequest: PagesFunction<Env, "path"> = async ({ request, env, para
     if (request.method === "DELETE") await serverEvent(env, request, "demo_remove", { demo, file: body.name }, email);
     else await serverEvent(env, request, "demo_upload", { demo, file: body.name, pages: body.pages, chars: body.chars }, email);
   }
+  // Disconnecting an app from the demo's MCP server is recorded as the consent page's decisions are.
+  if (answer.ok && path === "grants" && answer.headers.get("X-Mcp-Grant") !== null) await serverEvent(env, request, "demo_mcp_grant", { demo, decision: "disconnected", scopes: "" }, email);
   // The ask's event is recorded after the response has gone (`waitUntil` keeps the function
   // alive for it), never before: the stream's first byte must not wait on a D1 write.
   const question = answer.headers.get("X-Question-Id");

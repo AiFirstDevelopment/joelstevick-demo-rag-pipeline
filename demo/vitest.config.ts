@@ -22,6 +22,9 @@ export default defineWorkersConfig({
         miniflare: {
           compatibilityDate: '2026-10-01',
           d1Databases: ['DB'],
+          // The OAuth library's store for the MCP server (demo/src/oauth.ts).
+          kvNamespaces: ['OAUTH_KV'],
+          compatibilityFlags: ['global_fetch_strictly_public'],
         },
       },
     },

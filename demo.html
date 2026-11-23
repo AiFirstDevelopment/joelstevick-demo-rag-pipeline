@@ -21,6 +21,13 @@
 <meta name="twitter:image" content="https://joelstevick.com/img/og.jpg">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'><rect width='64' height='64' rx='12' fill='%23254d42'/><text x='32' y='43' font-family='Helvetica,Arial' font-size='30' font-weight='700' fill='white' text-anchor='middle'>JS</text></svg>">
 <link rel="stylesheet" href="/styles.css">
+<style>
+  /* The "Use it from Claude Code" box; styles.css is never edited. */
+  .connect { margin-top: 3rem; padding-top: 1.5rem; border-top: 1px solid currentColor; }
+  .connect-line { overflow-x: auto; padding: .8rem 1rem; border: 1px solid currentColor; border-radius: .4rem; font-size: .9rem; }
+  .apps { list-style: none; padding: 0; }
+  .apps li { display: flex; gap: 1rem; align-items: baseline; justify-content: space-between; padding: .5rem 0; border-bottom: 1px solid rgba(128, 128, 128, .35); }
+</style>
 <script src="/account.js" defer></script>
 <script src="/track.js" defer></script>
 </head>
@@ -85,6 +92,19 @@
           <a class="button ghost" href="https://calendly.com/joelstevick/20min" target="_blank" rel="noopener">Book a 20-minute call</a>
         </div>
       </div>
+
+      <!-- The demo's MCP server (README.md, "The MCP server"): shown once a PDF is uploaded. Nothing secret is on the page. -->
+      <section class="connect" id="connect" hidden aria-labelledby="connect-title">
+        <h2 id="connect-title">Use it from Claude Code</h2>
+        <p>Your documents are also an MCP server: Claude Code can search them, ask them and read them. Paste this into a terminal:</p>
+        <pre class="connect-line"><code id="connect-line">claude mcp add --transport http my-docs https://joelstevick.com/mcp/demo</code></pre>
+        <p><button type="button" class="button ghost" id="connect-copy">Copy</button></p>
+        <p>The first time Claude Code uses it, it opens this browser to ask your permission. A question it asks counts against the ten on this page.</p>
+        <h3>Connected apps</h3>
+        <p id="apps-none">No app is connected.</p>
+        <ul class="apps" id="apps"></ul>
+        <p class="status" id="apps-status" role="status" aria-live="polite"></p>
+      </section>
     </div>
   </div>
 </main>
@@ -149,6 +169,7 @@
       }
       li.remove();
       status.textContent = response.ok ? `${name} removed.` : body.error;
+      showConnect();
     } catch {
       status.textContent = `${name} could not be removed.`;
       button.disabled = false;
@@ -178,7 +199,59 @@
     left = body.left;
     showLeft();
     if (left <= 0) showOffer();
+    showConnect();
   }
+
+  // "Use it from Claude Code": the line to paste and the apps the visitor has allowed
+  // (docs/plans/demo-mcp.md). Shown only while the demo has a PDF; the line holds no secret.
+  function drawApps(apps) {
+    $("apps").replaceChildren(...apps.map((app) => {
+      const li = document.createElement("li");
+      const label = document.createElement("span");
+      label.textContent = `${app.name}${app.host ? ` (${app.host})` : ""}: ${app.can.join("; ")}. Allowed ${new Date(app.allowed_at * 1000).toLocaleDateString()}.`;
+      const disconnect = document.createElement("button");
+      disconnect.type = "button";
+      disconnect.className = "remove";
+      disconnect.textContent = "Disconnect";
+      disconnect.setAttribute("aria-label", `Disconnect ${app.name}`);
+      disconnect.addEventListener("click", async () => {
+        disconnect.disabled = true;
+        const response = await fetch("/api/demo/grants", { method: "DELETE", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ id: app.id }) }).catch(() => null);
+        const body = response ? await response.json().catch(() => ({})) : {};
+        if (!response || !response.ok) {
+          $("apps-status").textContent = body.error || `${app.name} could not be disconnected.`;
+          disconnect.disabled = false;
+          return;
+        }
+        $("apps-status").textContent = `${app.name} disconnected.`;
+        drawApps(body.apps ?? []);
+      });
+      li.append(label, disconnect);
+      return li;
+    }));
+    $("apps-none").hidden = apps.length > 0;
+  }
+
+  async function showConnect() {
+    const has = $("files").children.length > 0;
+    if (!has) { $("connect").hidden = true; return; }
+    const response = await fetch("/api/demo/grants").catch(() => null);
+    const body = response && response.ok ? await response.json().catch(() => ({})) : {};
+    // Where the MCP server is not set up, the box is not shown at all.
+    if (body.available !== true) { $("connect").hidden = true; return; }
+    $("connect-line").textContent = `claude mcp add --transport http my-docs ${location.origin}/mcp/demo`;
+    drawApps(body.apps ?? []);
+    $("connect").hidden = false;
+  }
+
+  $("connect-copy").addEventListener("click", async () => {
+    try {
+      await navigator.clipboard.writeText($("connect-line").textContent);
+      $("apps-status").textContent = "Copied.";
+    } catch {
+      $("apps-status").textContent = "Select the line and copy it.";
+    }
+  });
 
   let pdfjs = null;
   async function pagesOf(file) {
@@ -214,6 +287,7 @@
         opened.set(file.name, URL.createObjectURL(file));
         listFile(body);
         status.textContent = `${file.name} added.`;
+        showConnect();
       } catch {
         status.textContent = `${file.name} could not be read as a PDF.`;
       }
