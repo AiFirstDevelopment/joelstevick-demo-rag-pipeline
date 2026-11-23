@@ -7,6 +7,8 @@
 name = "joelstevick-com-demo"
 main = "src/index.ts"
 compatibility_date = "2026-10-01"
+# The OAuth library fetches a client's metadata document (demo/src/oauth.ts); this flag keeps that fetch to public addresses.
+compatibility_flags = ["global_fetch_strictly_public"]
 workers_dev = false
 preview_urls = false
 
@@ -21,6 +23,11 @@ index_name = "joelstevick-com-demo"
 
 [ai]
 binding = "AI"
+
+# The MCP server's OAuth store: clients, grants and tokens (hashed), kept by the OAuth library (docs/plans/demo-mcp.md).
+[[kv_namespaces]]
+binding = "OAUTH_KV"
+id = "850d40fcecf94ee0af68977a74e61592"
 
 # Tells Joel when a demo's first upload finishes.
 [[services]]

@@ -18,6 +18,9 @@ flowchart LR
   W --> V[("Vectorize")]
   W --> A["Workers AI<br/>bge-m3"]
   W --> C["Claude<br/>rerank, answer"]
+  H["MCP host<br/>Claude Code"] -->|"/mcp/demo, OAuth"| P2["Pages Functions<br/>/mcp/demo, /oauth/*"]
+  P2 -->|"DEMO service binding"| W
+  W --> K[("KV<br/>OAuth grants")]
 ```
 
 ## Trace a request, from the browser inward
@@ -118,6 +121,55 @@ JSON body for every other caller, such as the eval harness ([line 479](demo/src/
   shown, and `done` draws the sources.
 - What was shown stays: every sentence on the page passed its own check before it was sent.
 
+## The MCP server: the same documents, from Claude Code
+
+The demo is also an MCP server at `https://joelstevick.com/mcp/demo`, so a visitor's uploaded PDFs can be searched, asked
+and read from Claude Code or any MCP host: `claude mcp add --transport http my-docs https://joelstevick.com/mcp/demo`.
+The demo page shows that line once a PDF is uploaded, with the apps the visitor has allowed and a Disconnect for each.
+[docs/mcp-oauth-flow.md](docs/mcp-oauth-flow.md) walks the whole flow over the wire, step by step, with the code for each.
+
+- **The protocol is a library's, not ours.** The server is built on the official TypeScript SDK
+  (`@modelcontextprotocol/server`), which handles both the 2026-07-28 revision and the 2025 ones, discovery, envelopes and
+  errors. Our code registers three tools, the files and their pages as resources, and one prompt:
+  `build` ([mcp.ts:200](demo/src/mcp.ts#L200)), served a fresh server per request by `serveMcp`
+  ([mcp.ts:398](demo/src/mcp.ts#L398)).
+- **The tools.** `search_documents` (passages, no answer, costs nothing), `ask_documents` (the page's own `ask`, so the
+  same checked answer, one of the ten questions; it sends progress notifications and still records an answer whose
+  caller left: `answerFrom`, [mcp.ts:161](demo/src/mcp.ts#L161)), and `remove_file`, the one write.
+- **Authorization is OAuth 2.1, and a library's too** (Cloudflare's `@cloudflare/workers-oauth-provider`, its store a KV
+  namespace bound as `OAUTH_KV`): discovery documents, client registration, PKCE, tokens, refresh and revocation. Our
+  part ([oauth.ts:57](demo/src/oauth.ts#L57)): the settings; the consent page `authorize`
+  ([oauth.ts:199](demo/src/oauth.ts#L199)), where the visitor is the demo their cookie names and ticks
+  what the app may do (`docs:read` always, `docs:write` to remove a file); and the grant, which holds the demo's id so a
+  token can only ever reach that demo's documents.
+- **The Pages side only forwards.** `/mcp/demo` ([functions/mcp/demo.ts](functions/mcp/demo.ts)), `/oauth/*`
+  ([functions/oauth/[[path]].ts](functions/oauth/%5B%5Bpath%5D%5D.ts)) and the two `/.well-known/` discovery documents
+  ([functions/_middleware.ts](functions/_middleware.ts)) go to the Worker through `forwardToDemo`
+  ([demo-mcp.ts:28](functions/_lib/demo-mcp.ts#L28)), which drops any `X-Demo-*` header a caller
+  sends: only the site says which demo a browser's cookie names.
+- **Tests:** [demo/tests/mcp.test.ts](demo/tests/mcp.test.ts) connects with the SDK's own client in both protocol eras,
+  runs the whole OAuth flow, and has a test per guard: another demo's documents, a scope the user didn't tick, a
+  disconnected app, document text where instructions go, an unbounded result, and no protocol or OAuth code of our own.
+
+## Watching the pipeline: daily metrics, drift, a canary
+
+Every question is recorded (`questions`, with `via`: the page, MCP or the canary), and the Worker's daily job
+([demo/src/health.ts](demo/src/health.ts)) watches them:
+
+- **Daily metrics** (`rollUp`, [health.ts:79](demo/src/health.ts#L79)): per day and route, the
+  questions, how many were answered, the fallbacks by reason (not found, refused by the check, model failure, stopped),
+  and the p50 and p95 time to answer, into `pipeline_days`.
+- **Drift** (`driftFlags`, [health.ts:116](demo/src/health.ts#L116)): each day against the 14 days
+  before it. A rate is flagged above its baseline by more than 3 standard errors of a binomial and at least 5 points;
+  the p95 time at over 1.5 times the baseline days' median; a day needs 10 questions and the baseline 30.
+- **A canary** (`runCanary`, [health.ts:184](demo/src/health.ts#L184)): six fixed questions about a
+  fixed, invented 16-page document ([demo/src/canary.ts](demo/src/canary.ts)), asked through the real pipeline every
+  day. The document is longer than the 12 passages an answer is written from, so it exercises retrieval and reranking,
+  not only the model; a canary that cannot run is itself a flag. `CANARY_ENABLED=0` turns it off.
+- `/internal/admin/health` serves the days, flags and canary runs. On joelstevick.com an admin page shows them and a
+  flagged day sends an alert; those are the site's, not part of this repository.
+- **Tests:** [demo/tests/health.test.ts](demo/tests/health.test.ts).
+
 ## The eval harness: `evals/`
 
 [evals/README.md](evals/README.md) covers running and reading it; [evals/JOURNAL.md](evals/JOURNAL.md)
@@ -146,7 +198,8 @@ npm run eval      # real models: needs evals/.dev.vars with ANTHROPIC_API_KEY, a
 ```
 
 To deploy your own copy, create the D1 database, the Vectorize index (1,024 dimensions, cosine)
-and the secret, put their names in `demo/wrangler.toml`, and drop the `MAILER` binding (it notifies
+and the secret, plus a KV namespace for the MCP server's OAuth store (`OAUTH_KV`), put their names in
+`demo/wrangler.toml`, run the migrations in `demo/migrations/`, and drop the `MAILER` binding (it notifies
 the site's owner of a demo's first upload). The page loads the site's stylesheet and scripts, which
 are not included.
 

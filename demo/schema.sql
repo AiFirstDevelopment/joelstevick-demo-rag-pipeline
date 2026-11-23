@@ -63,9 +63,20 @@ CREATE TABLE IF NOT EXISTS questions (
   fallback  TEXT,                            -- NULL, 'not_found', 'refused', 'trouble' or 'stopped' (checked, shown in part)
   ms        INTEGER,
   first_ms  INTEGER,                         -- milliseconds to the first sentence shown; NULL when none was
-  keep      INTEGER NOT NULL DEFAULT 0
+  keep      INTEGER NOT NULL DEFAULT 0,
+  via       TEXT                             -- 'mcp' when asked through the MCP server (demo/src/mcp.ts), 'canary' by the daily canary; NULL from the page
 );
 CREATE INDEX IF NOT EXISTS questions_demo ON questions(demo_id, asked_at);
+
+-- The MCP server's counters (demo/src/mcp.ts): requests a minute for a demo or a hashed address, and
+-- searches a day for a demo. `slot` is the minute or the day counted; rows older than two days are
+-- deleted by the daily job. No query, token or address is stored here.
+CREATE TABLE IF NOT EXISTS mcp_hits (
+  key   TEXT NOT NULL,                        -- 'demo:<id>', 'search:<id>' or 'addr:<sha-256 of the address>'
+  slot  TEXT NOT NULL,                        -- 'YYYY-MM-DDTHH:MM' or 'YYYY-MM-DD'
+  hits  INTEGER NOT NULL DEFAULT 0,
+  PRIMARY KEY (key, slot)
+);
 
 -- A copy of each uploaded page's text, written at upload only when keep is set, for analysis
 -- and golden sets. The 10-day purge never touches it; the daily job deletes it after 25 months.
@@ -76,4 +87,44 @@ CREATE TABLE IF NOT EXISTS archived_pages (
   text        TEXT NOT NULL,
   archived_at TEXT NOT NULL DEFAULT (datetime('now')),
   PRIMARY KEY (demo_id, file, page)
+);
+
+-- The pipeline's health (demo/src/health.ts, README.md, "Watching the pipeline"). One row per UTC day and via
+-- ('page' or 'mcp'): counts, fallbacks by reason and times, rolled up from `questions` by the daily job.
+-- Canary questions are not counted. Counts and times only: no question or answer text.
+CREATE TABLE IF NOT EXISTS pipeline_days (
+  day        TEXT NOT NULL,                  -- 'YYYY-MM-DD', UTC
+  via        TEXT NOT NULL,                  -- 'page' or 'mcp'
+  asks       INTEGER NOT NULL,
+  answered   INTEGER NOT NULL,               -- passed the check, no fallback
+  not_found  INTEGER NOT NULL,
+  refused    INTEGER NOT NULL,
+  trouble    INTEGER NOT NULL,
+  stopped    INTEGER NOT NULL,
+  ms_p50     INTEGER,
+  ms_p95     INTEGER,
+  first_p50  INTEGER,
+  PRIMARY KEY (day, via)
+);
+
+-- What the drift check flagged for a day: the metric, its value, the baseline and the threshold it passed.
+CREATE TABLE IF NOT EXISTS pipeline_flags (
+  day        TEXT NOT NULL,
+  via        TEXT NOT NULL,                  -- 'page', 'mcp' or 'canary'
+  metric     TEXT NOT NULL,                  -- 'refused', 'trouble', 'stopped', 'not_found', 'ms_p95', 'canary'
+  value      REAL NOT NULL,
+  baseline   REAL NOT NULL,
+  threshold  REAL NOT NULL,
+  PRIMARY KEY (day, via, metric)
+);
+
+-- The canary's daily answers to its fixed questions about its fixed document (demo/src/canary.ts).
+CREATE TABLE IF NOT EXISTS canary_runs (
+  day     TEXT NOT NULL,
+  name    TEXT NOT NULL,                     -- the case's name
+  passed  INTEGER NOT NULL,
+  found   INTEGER NOT NULL,                  -- 1 when the pipeline answered, 0 when it fell back
+  ms      INTEGER,
+  answer  TEXT,                              -- the first 300 characters of the invented document's answer
+  PRIMARY KEY (day, name)
 );
