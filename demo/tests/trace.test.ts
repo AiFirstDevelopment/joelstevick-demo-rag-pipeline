@@ -43,6 +43,8 @@ describe('the eval trace of a streamed call', () => {
 
   it('names an error event', () => {
     const failed = usageOfStream('event: error\ndata: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}\n\n')
+
+    // The message from the error event is what comes back.
     expect(failed.error).toBe('Overloaded')
   })
 })

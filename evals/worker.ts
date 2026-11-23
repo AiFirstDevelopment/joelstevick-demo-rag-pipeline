@@ -38,9 +38,12 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   // Only Anthropic requests are traced; any other request passes straight through.
   const url = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url
   if (!url.startsWith('https://api.anthropic.com/')) return realFetch(input, init)
+
   // The request body names the model and holds the prompt the passages are read back out of below.
   const started = Date.now()
   const sent = JSON.parse(String(init?.body ?? '{}')) as { model: string; messages: { content: string }[] }
+
+  // Make the real call; a failure is traced, then passed on to the caller.
   let response: Response
   try {
     response = await realFetch(input, init)
@@ -49,6 +52,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     calls.push({ model: sent.model, input_tokens: 0, output_tokens: 0, stop_reason: null, ms: Date.now() - started, error: String(error) })
     throw error
   }
+
   // The answer passages the prompt was given, and the reranker's pool, read back out of the request.
   const describe = (call: Call) => {
     // The reranker's passages back out of its prompt: split at the blank line before each `[n] ` label, labels stripped, in pool order.
@@ -57,6 +61,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     if (sent.model === ANSWER_MODEL) call.given = [...(sent.messages[0]?.content ?? '').matchAll(/^\[([^\]]+)\] \(/gm)].map((m) => m[1])
     calls.push(call)
   }
+
   if (response.ok && response.body !== null && (response.headers.get('content-type') ?? '').includes('text/event-stream')) {
     // A streamed reply (the answer model, `stream: true`). Its token counts are not in a JSON body
     // but in two of its events, message_start (input) and message_delta (output), so the whole
@@ -67,15 +72,21 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     // back until the trace's half has been consumed, so the demo saw the whole reply arrive at
     // once and the eval measured the time to the first sentence as equal to the total. A
     // TransformStream between Anthropic and the caller sees each chunk and passes it straight on.
+
+    // What has passed through so far, and whether the call has been traced yet.
     const decoder = new TextDecoder()
     let seen = ''
     let traced = false
+
+    // Trace the call once, from everything that passed through.
     const trace = () => {
       if (traced) return
       traced = true
       const usage = usageOfStream(seen + decoder.decode())
       describe({ model: sent.model, input_tokens: usage.input_tokens, output_tokens: usage.output_tokens, stop_reason: usage.stop_reason, ms: Date.now() - started, reply: usage.reply, ...(usage.error ? { error: usage.error } : {}) })
     }
+
+    // A pass-through stream between Anthropic and the caller.
     const passing = new TransformStream<Uint8Array, Uint8Array>({
       // Every chunk is copied into `seen` (decoded with `stream: true`, so a character split
       // across chunks is joined) and enqueued unchanged for the caller.
@@ -86,11 +97,13 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       // `flush` runs when Anthropic's stream ends: the call is traced from everything that passed.
       flush: trace,
     })
+
     // When the caller cancels (the demo stops reading after a refused sentence), `pipeTo` rejects
     // and, with `preventCancel`, leaves Anthropic's stream open: the rest is read here, so the
     // trace still gets the final message_delta and the ledger counts every token the call cost.
     const body = response.body
     body.pipeTo(passing.writable, { preventCancel: true }).catch(async () => {
+      // Read the rest of Anthropic's stream here, keeping what arrives.
       const reader = body.getReader()
       try {
         for (;;) {
@@ -101,10 +114,15 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       } catch {
         // A dropped connection: trace what arrived.
       }
+
+      // Then trace the call from all of it.
       trace()
     })
+
+    // The caller reads the reply through the pass-through stream.
     return new Response(passing.readable, response)
   }
+
   // `clone()`, so the body is read here and still readable by the caller.
   const body = (await response.clone().json().catch(() => ({}))) as {
     content?: { type: string; text?: string }[]
@@ -112,6 +130,7 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     stop_reason?: string
     error?: { message?: string }
   }
+
   // Model, token usage and stop reason from the reply; tokens count as 0 when the reply has no usage block.
   const call: Call = {
     model: sent.model,
@@ -120,9 +139,12 @@ globalThis.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
     stop_reason: body.stop_reason ?? null,
     ms: Date.now() - started,
   }
+
   // An HTTP error is recorded with Anthropic's message; the reply's text is kept for reading a case back.
   if (!response.ok) call.error = `${response.status} ${body.error?.message ?? ''}`
   call.reply = (body.content ?? []).filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
+
+  // Trace the call and hand the untouched reply to the caller.
   describe(call)
   return response
 }
@@ -138,13 +160,16 @@ const app = createApp((env) => ({
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     const { pathname } = new URL(request.url)
+
     // `splice(0)` hands over the calls so far and empties the list: each read is "since the last".
     if (pathname === '/eval/trace') return Response.json(calls.splice(0))
+
     if (pathname === '/eval/reset' && request.method === 'POST') {
       // Every demo's question count back to zero, so the ten-question limit never ends a run.
       await env.DB.prepare('UPDATE demos SET asks_used = 0').run()
       return Response.json({ ok: true })
     }
+
     if (pathname === '/eval/forget' && request.method === 'POST') {
       // Every chunk id of the demo from D1, deleted from Vectorize 500 at a time, as the demo's own delete does.
       const { demo_id } = (await request.json()) as { demo_id: string }
@@ -152,8 +177,11 @@ export default {
       for (let i = 0; i < ids.length; i += 500) await env.VECTORS?.deleteByIds(ids.slice(i, i + 500))
       return Response.json({ deleted: ids.length })
     }
+
     if (pathname === '/eval/chunks' && request.method === 'POST') {
+      // The ids to look up, from the request body.
       const { ids } = (await request.json()) as { ids: string[] }
+
       // Read 50 ids a query, which keeps each statement under D1's limit on bound parameters.
       const found = []
       for (let i = 0; i < ids.length; i += 50) {
@@ -161,8 +189,10 @@ export default {
         const rows = await env.DB.prepare(`SELECT id, file, page, text FROM chunks WHERE id IN (${part.map(() => '?').join(', ')})`).bind(...part).all()
         found.push(...rows.results)
       }
+
       return Response.json(found)
     }
+
     if (pathname === '/eval/indexed' && request.method === 'POST') {
       const { demo_id } = (await request.json()) as { demo_id: string }
       // The demo's chunk ids from D1, each looked up in Vectorize to see whether its vector is written yet.
@@ -172,6 +202,7 @@ export default {
       for (let i = 0; i < ids.length; i += 20) ready += (await env.VECTORS!.getByIds(ids.slice(i, i + 20))).length
       return Response.json({ chunks: ids.length, ready })
     }
+
     // Every other path is the demo's own route, served unchanged.
     return app.fetch(request, env, ctx)
   },

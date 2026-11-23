@@ -23,11 +23,16 @@ export interface StreamUsage {
  * message_delta, the text from every text_delta, and an error event's message.
  */
 export function usageOfStream(body: string): StreamUsage {
+  // Start from zeros, so a stream with no usage events still gives a full record.
   const usage: StreamUsage = { input_tokens: 0, output_tokens: 0, stop_reason: null, reply: '' }
+
   // Blocks are events; each block's "data:" lines, joined, are its payload.
   for (const block of body.replace(/\r\n/g, '\n').split('\n\n')) {
     const data = block.split('\n').filter((line) => line.startsWith('data:')).map((line) => line.slice(5).trim()).join('\n')
+    // A block with no data carries nothing to keep.
     if (data === '') continue
+
+    // Parse the payload; a block that is not JSON is skipped.
     let event: {
       type?: string
       message?: { usage?: { input_tokens?: number; output_tokens?: number } }
@@ -40,6 +45,8 @@ export function usageOfStream(body: string): StreamUsage {
     } catch {
       continue
     }
+
+    // Keep what each kind of event carries.
     if (event.type === 'message_start') {
       usage.input_tokens = event.message?.usage?.input_tokens ?? 0
       usage.output_tokens = event.message?.usage?.output_tokens ?? 0
@@ -53,5 +60,6 @@ export function usageOfStream(body: string): StreamUsage {
       usage.error = event.error?.message ?? 'stream error'
     }
   }
+
   return usage
 }

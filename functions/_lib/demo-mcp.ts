@@ -16,6 +16,7 @@ export interface DemoMcpEnv extends TrackEnv {
 
 /** The two discovery documents an MCP client reads: the protected resource's and the authorization server's. */
 export const WELL_KNOWN = ["/.well-known/oauth-protected-resource", "/.well-known/oauth-authorization-server"];
+
 /** Headers the Worker answers the site with, never passed on to the caller. */
 const INTERNAL = ["X-Demo-Email", "X-Demo-Id", "X-Mcp-Grant", "X-Mcp-Scopes"];
 
@@ -26,28 +27,43 @@ const INTERNAL = ["X-Demo-Email", "X-Demo-Id", "X-Mcp-Grant", "X-Mcp-Scopes"];
  * header, or its own address, itself: both are removed from what arrived and set here.
  */
 export async function forwardToDemo(request: Request, env: DemoMcpEnv, consent = false): Promise<Response> {
+  // Without the binding there is no Worker to forward to.
   if (env.DEMO === undefined) return Response.json({ error: "The demo is not available right now." }, { status: 503 });
+
+  // Start from the caller's headers, then drop any it sent that only the site may set.
   const headers = new Headers(request.headers);
   const names: string[] = [];
   headers.forEach((_value, name) => names.push(name));
   for (const name of names) if (name.toLowerCase().startsWith("x-demo-") || name.toLowerCase() === "x-client-address") headers.delete(name);
+
+  // Cookies only go through to the consent page.
   if (!consent) headers.delete("Cookie");
+
+  // Tell the Worker who is calling and whether this visitor may be recorded.
   headers.set("X-Client-Address", request.headers.get("CF-Connecting-IP") ?? "unknown");
   headers.set("X-Demo-Keep", mayRecord(request, env) ? "1" : "0");
+
+  // On the consent page, pass on the visitor's demo key so the Worker knows whose demo it is.
   const key = consent ? demoKey(request) : null;
   if (key !== null) headers.set("X-Demo-Key", key);
+
+  // Send the request on to the Worker at the same URL, leaving redirects for the caller to follow.
   const answer = await env.DEMO.fetch(request.url, {
     method: request.method,
     headers,
     body: request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer(),
     redirect: "manual",
   });
+
   // A decision on the consent page is recorded as an event, with the scopes and never the app's token.
   const decision = answer.headers.get("X-Mcp-Grant");
   if (decision !== null) {
     await serverEvent(env, request, "demo_mcp_grant", { demo: answer.headers.get("X-Demo-Id"), decision, scopes: answer.headers.get("X-Mcp-Scopes") ?? "" }, answer.headers.get("X-Demo-Email"));
   }
+
+  // Pass the answer back without the headers meant only for the site.
   const response = new Response(answer.body, answer);
   for (const name of INTERNAL) response.headers.delete(name);
+
   return response;
 }

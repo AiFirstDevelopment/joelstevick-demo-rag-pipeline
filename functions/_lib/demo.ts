@@ -6,18 +6,23 @@
 // here, never sent anywhere but the DEMO binding.
 
 export const COOKIE = "demo";
+// A key is 43 URL-safe base64 characters (32 random bytes).
 const FORMAT = /^[A-Za-z0-9_-]{43}$/;
 
+// Finds the demo key in the request's cookies, or null when there is none or it looks wrong.
 export function demoKey(request: Request): string | null {
   for (const part of (request.headers.get("Cookie") ?? "").split(";")) {
     const [name, ...value] = part.trim().split("=");
     if (name === COOKIE && FORMAT.test(value.join("="))) return value.join("=");
   }
+
   return null;
 }
 
+// Whether a value is shaped like a demo key.
 export const isDemoKey = (key: string | null): key is string => key !== null && FORMAT.test(key);
 
+// The Set-Cookie value that signs this browser in to a demo for 14 days.
 export function demoCookie(key: string): string {
   return `${COOKIE}=${key}; Path=/; Max-Age=${14 * 86_400}; HttpOnly; Secure; SameSite=Lax`;
 }

@@ -71,6 +71,8 @@ export function claudeFor(apiKey: string | undefined): Claude {
   return async ({ model, system, user, schema, maxTokens, timeoutMs, effort }) => {
     // No key: throw at once, so the caller degrades exactly as it does when the model fails.
     if (apiKey === undefined || apiKey === '') throw new Error('no ANTHROPIC_API_KEY')
+
+    // One request to the Messages API, asking for a reply in the schema's shape.
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       // The timeout aborts the request itself, so a slow model throws instead of holding the ask.
@@ -85,11 +87,14 @@ export function claudeFor(apiKey: string | undefined): Claude {
         output_config: { format: { type: 'json_schema', schema }, ...(effort === undefined ? {} : { effort }) },
       }),
     })
+
     // The body is read whether or not the call succeeded, since an error reply carries its message.
     const body = (await response.json()) as { content?: { type: string; text?: string }[]; error?: { message?: string } }
     if (!response.ok) throw new Error(`Anthropic ${response.status}: ${body.error?.message ?? ''}`)
+
     // The reply's text blocks, joined; any other block, such as the model's thinking, is skipped.
     const text = (body.content ?? []).filter((block) => block.type === 'text').map((block) => block.text ?? '').join('')
+
     // Text that is not JSON throws here, which the caller treats as a failed call.
     return JSON.parse(text)
   }
@@ -115,6 +120,8 @@ export function claudeStreamFor(apiKey: string | undefined): ClaudeStream {
   return async function* ({ model, system, user, maxTokens, timeoutMs }) {
     // No key: throw at once, so the caller degrades exactly as it does when the model fails.
     if (apiKey === undefined || apiKey === '') throw new Error('no ANTHROPIC_API_KEY')
+
+    // One streamed request to the Messages API.
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       // The timeout covers the whole reply, streamed or not: a model that stalls mid-answer aborts
@@ -124,11 +131,13 @@ export function claudeStreamFor(apiKey: string | undefined): ClaudeStream {
       // No `output_config`: the answer is plain text with inline citations (ANSWER_RULES), not JSON.
       body: JSON.stringify({ model, max_tokens: maxTokens, system, messages: [{ role: 'user', content: user }], stream: true }),
     })
+
     // An error reply (a bad key, a rate limit) is one JSON body, not a stream; its message is kept.
     if (!response.ok || response.body === null) {
       const body = (await response.json().catch(() => ({}))) as { error?: { message?: string } }
       throw new Error(`Anthropic ${response.status}: ${body.error?.message ?? ''}`)
     }
+
     // Each server-sent event's data is one JSON object; only the text pieces are passed on.
     for await (const event of serverEvents(response.body)) {
       const data = JSON.parse(event.data) as { type?: string; delta?: { type?: string; text?: string }; error?: { message?: string } }
@@ -149,7 +158,9 @@ export function claudeStreamFor(apiKey: string | undefined): ClaudeStream {
 export async function* serverEvents(body: ReadableStream<Uint8Array>): AsyncGenerator<{ event: string; data: string }> {
   // Bytes to text as they come; a multi-byte character split across two chunks is joined by the decoder.
   const reader = body.pipeThrough(new TextDecoderStream()).getReader()
+  // Text received but not yet split into whole events.
   let buffer = ''
+
   // The `finally` runs however the generator ends: the stream read to its end, an exception, or
   // the caller leaving its `for await` early (`return()` on the generator). Cancelling the reader
   // then cancels the HTTP body, so a reply the demo has stopped reading (a sentence failed its
@@ -159,11 +170,13 @@ export async function* serverEvents(body: ReadableStream<Uint8Array>): AsyncGene
       const { value, done } = await reader.read()
       // Line endings normalised, so the blank line that ends an event is always "\n\n".
       if (value !== undefined) buffer += value.replace(/\r\n/g, '\n')
+
       // Each event ends at a blank line; what follows the last one waits for more.
       let end: number
       while ((end = buffer.indexOf('\n\n')) >= 0) {
         const block = buffer.slice(0, end)
         buffer = buffer.slice(end + 2)
+
         // An event with no "event:" line is named "message", as the standard says.
         let event = 'message'
         const data: string[] = []
@@ -172,9 +185,12 @@ export async function* serverEvents(body: ReadableStream<Uint8Array>): AsyncGene
           // Several "data:" lines are one payload, joined with newlines; the space after the colon is not part of it.
           else if (line.startsWith('data:')) data.push(line.slice(5).replace(/^ /, ''))
         }
+
         // A block with no data (a comment, a bare "event:" line) is not an event.
         if (data.length > 0) yield { event, data: data.join('\n') }
       }
+
+      // Stop once the stream has ended.
       if (done) return
     }
   } finally {
@@ -184,24 +200,32 @@ export async function* serverEvents(body: ReadableStream<Uint8Array>): AsyncGene
 
 /** bge-m3 on Workers AI as an `Embed`; undefined without the AI binding, so the demo runs on keywords alone. */
 export function embedFor(ai: Ai | undefined): Embed | undefined {
+  // No AI binding: no embeddings, so keyword search only.
   if (ai === undefined) return undefined
+
   // `ai.run` is typed per model; cast once to what bge-m3 returns: one vector per text, in order.
   const run = ai.run.bind(ai) as unknown as (model: string, input: unknown) => Promise<{ data: Vector[] }>
+
+  // Embed all the texts in one call and return just the vectors.
   return async (texts) => (await run(EMBEDDING_MODEL, { text: texts })).data
 }
 
 /** The Vectorize index as `Vectors`; undefined without the binding. */
 export function vectorsFor(index: VectorizeIndex | undefined): Vectors | undefined {
+  // No Vectorize binding: no vector search.
   if (index === undefined) return undefined
+
   return {
     async upsert(namespace, items) {
       // Every vector is written under the demo's namespace, so a query in that namespace sees that demo's vectors alone.
       await index.upsert(items.map((item) => ({ ...item, namespace })))
     },
+
     async query(namespace, values, topK) {
       // Vectorize returns matches best first; only the ids are kept, the chunks are read from D1 by id.
       return (await index.query(values, { topK, namespace })).matches.map((match) => match.id)
     },
+
     async deleteByIds(ids) {
       // Vectorize deletes by id alone; a chunk id starts with its demo's id, so only that demo's vectors go.
       await index.deleteByIds(ids)
@@ -216,6 +240,7 @@ export function vectorsFor(index: VectorizeIndex | undefined): Vectors | undefin
  */
 export const ANSWER_CHUNKS = 12
 
+/** The reranker's instructions: pick the passages that answer, best first. */
 const RERANK_RULES = `You choose which passages answer a question about a set of documents.
 You are given the question and a numbered list of passages.
 Return the numbers of the passages that answer the question, best first, at most ${ANSWER_CHUNKS}.
@@ -231,7 +256,10 @@ Return an empty list if none answers it.`
  * passage it was not given, the pool by fusion alone.
  */
 export async function rerank(claude: Claude, question: string, pool: Chunk[]): Promise<Chunk[]> {
+  // Nothing to rank, so nothing to answer from.
   if (pool.length === 0) return []
+
+  // Ask Haiku which passages answer the question, best first.
   try {
     const reply = (await claude({
       model: RERANK_MODEL,
@@ -247,14 +275,19 @@ export async function rerank(claude: Claude, question: string, pool: Chunk[]): P
       // 48 passages took up to 4.3 s in the evals: 5 s left too little room before the fallback.
       timeoutMs: 8000,
     })) as { ranked?: unknown }
+
+    // The passage numbers the model chose.
     const ranked = reply.ranked
+
     // A number outside the list means the model named a passage it was not given: the whole reply is distrusted.
     if (!Array.isArray(ranked) || ranked.some((n) => !Number.isInteger(n) || n < 0 || n >= pool.length)) {
       throw new Error(`the reranker named passages that were not given: ${JSON.stringify(reply)}`)
     }
+
     // `ranked` holds positions in `pool`, the `[index]` labels the passages were sent under: not
     // ids, not text. `includes` below is by object identity, on the same Chunk objects.
     const chosen = [...new Set(ranked as number[])].map((n) => pool[n])
+
     // The chosen first, then the rest of the pool in fusion order, cut to ANSWER_CHUNKS.
     return [...chosen, ...pool.filter((chunk) => !chosen.includes(chunk))].slice(0, ANSWER_CHUNKS)
   } catch (error) {
@@ -305,8 +338,11 @@ Never write that the passages or the documents do not say something: you see onl
 export function answer(stream: ClaudeStream, question: string, given: Chunk[]): AsyncIterable<string> {
   // A widened passage that runs past its first page is labelled with the range of pages.
   const pages = (chunk: Chunk) => (chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? `pages ${chunk.page}–${chunk.lastPage}` : `page ${chunk.page}`)
+
   // Each passage goes in under its id and its place in the file; the answer's citations must copy those ids.
   const listed = given.map((chunk) => `[${chunk.id}] (${chunk.file}, ${pages(chunk)})\n${chunk.text}`).join('\n\n')
+
+  // Hand back the stream; nothing is sent until the caller starts reading it.
   return stream({
     model: ANSWER_MODEL,
     system: ANSWER_RULES,

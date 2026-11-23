@@ -11,6 +11,7 @@
  * from the whole document at once; each page is one passage. Nothing in it is anyone's real data.
  */
 
+// The name the canary's document is stored under, as if it were an uploaded PDF.
 export const CANARY_FILE = 'canary-policy.pdf'
 
 /** Sixteen pages of an invented equipment-rental company's policy: three that hold the answers, thirteen that do not. */
@@ -43,6 +44,7 @@ export interface CanaryCase {
   fallback?: boolean
 }
 
+// Five questions the document answers, and one it does not.
 export const CANARY_CASES: CanaryCase[] = [
   { name: 'deposit', question: 'How much is the deposit for a rental?', must: ['200'] },
   { name: 'late-return', question: 'When does a rental day end?', must: ['5:30'] },

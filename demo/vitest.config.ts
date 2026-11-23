@@ -6,6 +6,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { defineWorkersConfig } from '@cloudflare/vitest-pool-workers/config'
 
+// The folder this config is in, so the paths below work wherever vitest is started.
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 
 // The demo Worker's routes, in workerd against a real local D1. Workers AI and

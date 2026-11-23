@@ -48,17 +48,25 @@ import { ANSWER_MODEL, RERANK_MODEL, type Claude, type ClaudeStream, type Embed,
 
 // An entry may wrap across a line, as it does in a PDF.
 const ENTRY = /([A-Z][a-z]+(?:\s[A-Z][a-z]+)*)\sat\s([A-Z][a-z]+(?:\s[A-Z][a-z]+)*),\s(\d{4})\sto\s(\d{4})/g
+// Turns line breaks and runs of spaces into single spaces.
 const flat = (text: string) => text.replace(/\s+/g, ' ')
 
 function jobs(question: string, passages: string): { answer: string; items?: string[]; sources: string[] } {
+  // Every job entry in every passage, with the id of the passage it came from.
   const entries = [...passages.matchAll(/^\[([^\]]+)\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/gm)]
     .flatMap(([, id, text]) => [...text.matchAll(ENTRY)].map(([, role, employer, from, to]) => ({ id, role: flat(role), employer: flat(employer), from, to })))
+
+  // A question that names an employer gets that one job, as a sentence.
   const asked = entries.filter((e) => question.includes(e.employer))
   if (asked.length > 0) {
     const e = asked[0]
     return { answer: `He was ${e.role} at ${e.employer} from ${e.from} to ${e.to}.`, sources: [e.id] }
   }
+
+  // Anything but a "what jobs" question, or no entries at all, gets no answer.
   if (!/\bjobs\b/i.test(question) || entries.length === 0) return { answer: '', sources: [] }
+
+  // Every passage that held a job is cited.
   const sources = [...new Set(entries.map((e) => e.id))]
   // "One sentence each": a list of sentences, one per job, with no lead-in.
   if (/\beach\b/i.test(question)) {
@@ -69,25 +77,38 @@ function jobs(question: string, passages: string): { answer: string; items?: str
 }
 
 export const claude: Claude = async ({ model, system, user }) => {
+  // The question the user asked, taken out of the prompt.
   const question = /^Question: (.*)$/m.exec(user)?.[1] ?? ''
+
+  // The reranker: the passages in order, or the ones a [pick:] marker names.
   if (model === RERANK_MODEL) {
     if (question.includes('[rerank-down]')) throw new Error('scripted: the reranker is down')
+    // How many numbered passages it was given.
     const count = (user.match(/^\[\d+\] /gm) ?? []).length
     const pick = /\[pick:([^\]]+)\]/.exec(question)
     if (pick !== null) {
       const passages = [...user.matchAll(/^\[(\d+)\] (.*)$/gm)].map(([, n, text]) => ({ n: Number(n), text: text.toLowerCase() }))
       return { ranked: pick[1].split(' ').flatMap((word) => passages.filter((p) => p.text.includes(word)).map((p) => p.n)) }
     }
+
+    // Otherwise the first N, N being the "at most" in its rules, or all of them.
     const most = Number(/at most (\d+)/.exec(system)?.[1] ?? count)
     return { ranked: Array.from({ length: Math.min(count, most) }, (_, i) => i) }
   }
+
+  // The answer model, steered by the markers listed at the top.
   if (model === ANSWER_MODEL) {
     if (question.includes('[model-down]')) throw new Error('scripted: the answer model is down')
+    // Questions about jobs are answered from the job entries.
     if (/\b(jobs|role)\b/i.test(question)) return jobs(question, user.split('Passages:\n\n')[1] ?? '')
+
+    // Anything else starts from the first passage's first sentence.
     const first = /^\[([^\]]+)\] \([^\n]*\)\n([^\n]*)/m.exec(user.split('Passages:\n\n')[1] ?? '')
     if (first === null) return { answer: '', sources: [] }
     const [, id, text] = first
     const sentence = /^.*?[.!?](?=\s|$)/.exec(text)?.[0] ?? text
+
+    // The markers that break the answer on purpose, for the checks to catch.
     if (question.includes('[cite-unretrieved]')) return { answer: sentence, sources: ['nowhere-0'] }
     if (question.includes('[invent-figure]')) return { answer: 'It costs $4,200 a year.', sources: [id] }
     if (question.includes('[whole-line]')) return { answer: text, sources: [id] }
@@ -95,25 +116,36 @@ export const claude: Claude = async ({ model, system, user }) => {
       const whole = /^\[[^\]]+\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/m.exec(user.split('Passages:\n\n')[1] ?? '')?.[1] ?? text
       return { answer: flat(whole), sources: [id] }
     }
+
     // The list markers: the first passage, flattened, cut into its sentences.
     const passage = /^\[[^\]]+\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/m.exec(user.split('Passages:\n\n')[1] ?? '')?.[1] ?? text
     const said = flat(passage).match(/[^.!?]+[.!?]/g)?.map((one) => one.trim()) ?? [flat(passage)]
+
+    // Each list marker shapes or breaks the list in its own way.
     if (question.includes('[items]')) return { answer: '', items: said, sources: [id] }
     if (question.includes('[invent-item]')) return { answer: 'The steps:', items: [said[0], 'It costs $4,200.'], sources: [id] }
     if (question.includes('[long-item]')) return { answer: '', items: [said.slice(0, 3).join(' ')], sources: [id] }
     if (question.includes('[loose]')) return { answer: `Roughly speaking, ${sentence.toLowerCase()}`, sources: [id] }
+
+    // No marker: the first sentence, citing its passage.
     return { answer: sentence, sources: [id] }
   }
+
+  // Any other model has no script, so the test fails loudly.
   throw new Error(`scripted: no script for ${model}`)
 }
 
 /** A scripted answer as the answer model now writes it: every sentence and "- " line ending with its ids. */
 function marked(reply: { answer: string; items?: string[]; sources: string[] }): string {
+  // The ids in brackets, or nothing when there are none.
   const cite = reply.sources.length > 0 ? ` [${reply.sources.join(', ')}]` : ''
+  // The lead-in, one sentence at a time, each followed by its ids.
   const lead = sentenceParts(reply.answer).map((sentence) => `${sentence}${cite}`).join(' ')
+  // Then each list item as a "- " line, with empty lines dropped.
   return [lead, ...(reply.items ?? []).map((item) => `- ${item}${cite}`)].filter((line) => line.length > 0).join('\n')
 }
 
+// Waits the given number of milliseconds.
 const pause = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms))
 
 /** Yields `text` a few characters at a time, as a streamed reply arrives. */
@@ -130,12 +162,18 @@ function* pieces(text: string): Generator<string> {
  * of the per-sentence check.
  */
 export const stream: ClaudeStream = async function* (request) {
+  // The question the user asked, taken out of the prompt.
   const question = /^Question: (.*)$/m.exec(request.user)?.[1] ?? ''
+
   // The scripted JSON reply, then turned into marked text below. `schema` is unused by the fake.
   const reply = (await claude({ ...request, schema: {} })) as { answer: string; items?: string[]; sources: string[] }
+
+  // The first passage's id and its sentences, for the stream's own markers.
   const first = /^\[([^\]]+)\] \([^\n]*\)\n([\s\S]*?)(?=\n\n\[|$(?![\s\S]))/m.exec(request.user.split('Passages:\n\n')[1] ?? '')
   const id = first?.[1] ?? ''
   const said = sentenceParts(flat(first?.[2] ?? ''))
+
+  // Two sentences with a pause between them, to time the first one.
   if (question.includes('[slow]')) {
     // The first sentence is complete once the second has begun, as it is when the real model writes.
     const second = `${said[1] ?? said[0]} [${id}]`
@@ -144,30 +182,43 @@ export const stream: ClaudeStream = async function* (request) {
     yield* pieces(second.slice(3))
     return
   }
+
+  // The other stream markers each shape the reply's citations.
   if (question.includes('[stop-midway]')) return yield* pieces(`${said[0]} [${id}] ${said[1] ?? 'It is also covered elsewhere.'} [nowhere-0]`)
   if (question.includes('[five-sentences]')) return yield* pieces(Array.from({ length: 5 }, (_, i) => `${said[i % said.length]} [${id}]`).join(' '))
   if (question.includes('[uncited-opener]')) return yield* pieces(`Yes. ${said[0]} [${id}]`)
   if (question.includes('[uncited-figure]')) return yield* pieces(`It costs 4,200 dollars. ${said[0]} [${id}]`)
   if (question.includes('[uncited-end]')) return yield* pieces(`${said[0]} [${id}] That is all.`)
+
+  // Fails partway, after the first sentence is sent.
   if (question.includes('[die-midway]')) {
     yield* pieces(`${said[0]} [${id}] And`)
     throw new Error('scripted: the answer model failed partway')
   }
+
+  // No stream marker: the scripted reply, sent in small pieces.
   yield* pieces(marked(reply))
 }
 
+// The length of each vector, the same as the real embedding model's.
 const DIMENSIONS = 1024
 
 /** A bag of hashed words, normalised: texts sharing words are near. */
 export const embed: Embed = async (texts) => {
+  // [vectors-down] makes the call fail, as if Workers AI were down.
   if (texts.some((text) => text.includes('[vectors-down]'))) throw new Error('scripted: Workers AI is down')
+
+  // Each text becomes word counts in hashed slots.
   return texts.map((text) => {
     const values = new Array<number>(DIMENSIONS).fill(0)
     for (const word of text.toLowerCase().match(/[a-z0-9]+/g) ?? []) {
+      // FNV-1a hash of the word.
       let h = 2166136261
       for (const c of word) h = Math.imul(h ^ c.charCodeAt(0), 16777619)
       values[(h >>> 0) % DIMENSIONS] += 1
     }
+
+    // Scaled to length 1, so the dot product is the cosine similarity.
     const norm = Math.hypot(...values) || 1
     return values.map((v) => v / norm)
   })
@@ -184,6 +235,8 @@ export class ScriptedVectors implements Vectors {
 
   async query(namespace: string | undefined, values: Vector, topK: number) {
     if (this.failing) throw new Error('scripted: Vectorize is down')
+
+    // Scores every vector in the namespace by dot product, best first.
     return [...this.store.entries()]
       .filter(([, v]) => namespace === undefined || v.namespace === namespace)
       .map(([id, v]) => ({ id, score: v.values.reduce((sum, x, i) => sum + x * values[i], 0) }))
@@ -198,6 +251,7 @@ export class ScriptedVectors implements Vectors {
   }
 }
 
+// The models the tests hand to createApp, all sharing one vector store.
 export function scriptedModels(vectors: ScriptedVectors): Models {
   return { claude, stream, embed, vectors }
 }

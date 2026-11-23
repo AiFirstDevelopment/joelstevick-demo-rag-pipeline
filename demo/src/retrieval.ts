@@ -42,9 +42,12 @@ export function words(text: string): string[] {
 
 /** The chunks sharing words with `question`, best first. A chunk with no word of the question is never returned. */
 export function bm25(chunks: Chunk[], question: string, limit: number): Chunk[] {
+  // No chunks, nothing to rank.
   if (chunks.length === 0) return []
+
   // Document frequency: for each word, how many chunks contain it (the n of the idf below).
   const frequency = new Map<string, number>()
+
   // Each chunk reduced once to its length in tokens and its count of each word (its tf), so scoring never re-reads the text.
   const docs = chunks.map((chunk) => {
     const counts = new Map<string, number>()
@@ -54,14 +57,19 @@ export function bm25(chunks: Chunk[], question: string, limit: number): Chunk[] 
     for (const word of counts.keys()) frequency.set(word, (frequency.get(word) ?? 0) + 1)
     return { length: tokens.length, counts }
   })
+
   // The average chunk length, which each chunk's length is measured against; `|| 1` avoids dividing by zero when no chunk has a word.
   const average = docs.reduce((sum, doc) => sum + doc.length, 0) / docs.length || 1
+
   // The question's distinct words: a word asked twice is scored once.
   const asked = [...new Set(words(question))]
+
   // The usual BM25 constants. k1 sets how fast repeats of a word stop adding score (the second occurrence adds far more
   // than the tenth); b sets how much a chunk's length counts against it (0 not at all, 1 in full proportion).
   const k1 = 1.2
   const b = 0.75
+
+  // Score every chunk against the question's words, then keep the best.
   return docs
     .map((doc, index) => {
       let score = 0
@@ -70,13 +78,17 @@ export function bm25(chunks: Chunk[], question: string, limit: number): Chunk[] 
         const n = frequency.get(word)
         const tf = doc.counts.get(word) ?? 0
         if (n === undefined || tf === 0) continue
+
         // idf: a word held by few chunks says more about a chunk than one held by most, so it weighs more. The + 0.5s keep
         // the ratio finite when a word is in every chunk, and the 1 + keeps idf positive, so a common word adds a little, never less than nothing.
         const idf = Math.log(1 + (chunks.length - n + 0.5) / (n + 0.5))
+
         // tf saturates through k1, and is divided by the chunk's length relative to the average, so a long chunk does not
         // outscore a short one just by holding more words.
         score += (idf * tf * (k1 + 1)) / (tf + k1 * (1 - b + (b * doc.length) / average))
       }
+
+      // Keep each score with its chunk so they can be sorted together.
       return { chunk: chunks[index], score }
     })
     // A chunk with no word of the question scores 0 and is dropped, so keyword search names only real matches and
@@ -117,16 +129,23 @@ export function bm25(chunks: Chunk[], question: string, limit: number): Chunk[] 
  * ids are left (no index, or it failed), the result is keyword search alone.
  */
 export function fuseKeywordAndVector(chunks: Chunk[], question: string, limit: number, near: string[] = []): Chunk[] {
+  // Chunks by id, to check the vector ids and to turn ids back into chunks.
   const byId = new Map(chunks.map((chunk) => [chunk.id, chunk]))
+
   // The vector search results passed in as `near`, kept only if they are still this demo's chunks.
   const meant = near.filter((id) => byId.has(id))
   if (meant.length === 0) return bm25(chunks, question, limit)
+
   // Chunk id -> its summed RRF score. Ranks are 0-based, hence the + 1.
   const fused = new Map<string, number>()
   const add = (ids: string[]) => ids.forEach((id, rank) => fused.set(id, (fused.get(id) ?? 0) + 1 / (RRF_K + rank + 1)))
+
   // Twice as many keyword results as needed, so a chunk just below the cut can still rise by its vector rank.
   add(bm25(chunks, question, limit * 2).map((chunk) => chunk.id))
+
+  // Then the vector search results, in their own order.
   add(meant)
+
   // Highest fused score first, cut to `limit`, ids turned back into chunks.
   return [...fused.entries()]
     .sort((a, b) => b[1] - a[1])

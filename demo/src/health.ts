@@ -66,6 +66,8 @@ export interface Flag {
 /** The `q` percentile of `values` by the nearest-rank method: the smallest value with at least q of them at or below it. */
 export function percentile(values: number[], q: number): number | null {
   if (values.length === 0) return null
+
+  // Sort a copy and take the value at rank ceil(q × n).
   const sorted = [...values].sort((a, b) => a - b)
   return sorted[Math.max(0, Math.ceil(q * sorted.length) - 1)]
 }
@@ -77,17 +79,24 @@ export function daysBefore(day: string, n: number): string {
 
 /** STEP 1 · one day's questions rolled up, per via; the day's rows are replaced. Canary questions are left out. */
 export async function rollUp(env: Env, day: string): Promise<DayRow[]> {
+  // Read the day's questions, leaving out the canary's.
   const rows = (await env.DB.prepare(
     `SELECT COALESCE(via, 'page') AS via, checked, fallback, ms, first_ms FROM questions
      WHERE substr(asked_at, 1, 10) = ? AND COALESCE(via, 'page') <> 'canary'`,
   ).bind(day).all<{ via: string; checked: number; fallback: string | null; ms: number | null; first_ms: number | null }>()).results
+
+  // One row per route that had questions that day.
   const out: DayRow[] = []
   for (const via of VIAS) {
     const mine = rows.filter((row) => row.via === via)
     if (mine.length === 0) continue
+
+    // Count each kind of fallback and gather the timings.
     const count = (fallback: string) => mine.filter((row) => row.fallback === fallback).length
     const times = mine.map((row) => row.ms).filter((ms): ms is number => ms !== null)
     const firsts = mine.map((row) => row.first_ms).filter((ms): ms is number => ms !== null)
+
+    // A question counts as answered when it passed the check and did not fall back.
     out.push({
       day, via, asks: mine.length,
       answered: mine.filter((row) => row.checked === 1 && row.fallback === null).length,
@@ -95,12 +104,15 @@ export async function rollUp(env: Env, day: string): Promise<DayRow[]> {
       ms_p50: percentile(times, 0.5), ms_p95: percentile(times, 0.95), first_p50: percentile(firsts, 0.5),
     })
   }
+
+  // Swap the day's old rows for the new ones in one go.
   await env.DB.batch([
     env.DB.prepare('DELETE FROM pipeline_days WHERE day = ?').bind(day),
     ...out.map((r) => env.DB.prepare(
       'INSERT INTO pipeline_days (day, via, asks, answered, not_found, refused, trouble, stopped, ms_p50, ms_p95, first_p50) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
     ).bind(r.day, r.via, r.asks, r.answered, r.not_found, r.refused, r.trouble, r.stopped, r.ms_p50, r.ms_p95, r.first_p50)),
   ])
+
   return out
 }
 
@@ -115,7 +127,11 @@ export async function rollUp(env: Env, day: string): Promise<DayRow[]> {
  */
 export function driftFlags(today: DayRow, baseline: DayRow[]): Flag[] {
   const flags: Flag[] = []
+
+  // Too few questions today to judge anything.
   if (today.asks < MIN_DAY) return flags
+
+  // Rates: compare each fallback rate with the pooled baseline, once the baseline is big enough.
   const baseAsks = baseline.reduce((sum, row) => sum + row.asks, 0)
   if (baseAsks >= MIN_BASELINE_ASKS) {
     for (const metric of RATES) {
@@ -125,54 +141,74 @@ export function driftFlags(today: DayRow, baseline: DayRow[]): Flag[] {
       if (rate > threshold) flags.push({ day: today.day, via: today.via, metric, value: rate, baseline: p, threshold })
     }
   }
+
+  // Times: flag a slow day against the middle of the baseline days' p95s.
   const p95s = baseline.map((row) => row.ms_p95).filter((ms): ms is number => ms !== null)
   if (p95s.length >= MIN_BASELINE_DAYS && today.ms_p95 !== null) {
     const centre = percentile(p95s, 0.5) as number
     if (today.ms_p95 > SLOW_FACTOR * centre) flags.push({ day: today.day, via: today.via, metric: 'ms_p95', value: today.ms_p95, baseline: centre, threshold: SLOW_FACTOR * centre })
   }
+
   return flags
 }
 
 /** STEP 2 · checks one rolled-up day against the 14 days before it, and stores its flags (replacing that day's traffic flags). */
 export async function checkDrift(env: Env, day: string): Promise<Flag[]> {
+  // Load the day and the 14 days before it.
   const rows = (await env.DB.prepare('SELECT * FROM pipeline_days WHERE day BETWEEN ? AND ?').bind(daysBefore(day, BASELINE_DAYS), day).all<DayRow>()).results
+
+  // Judge each route against its own history.
   const flags = VIAS.flatMap((via) => {
     const today = rows.find((row) => row.day === day && row.via === via)
     return today === undefined ? [] : driftFlags(today, rows.filter((row) => row.via === via && row.day < day))
   })
+
+  // Replace the day's traffic flags; canary flags are left alone.
   await env.DB.batch([
     env.DB.prepare("DELETE FROM pipeline_flags WHERE day = ? AND via <> 'canary'").bind(day),
     ...flags.map((f) => env.DB.prepare('INSERT INTO pipeline_flags (day, via, metric, value, baseline, threshold) VALUES (?, ?, ?, ?, ?, ?)')
       .bind(f.day, f.via, f.metric, f.value, f.baseline, f.threshold)),
   ])
+
   return flags
 }
 
 /** The canary demo, made the first time, with its document uploaded when it has none. */
 async function canaryDemo(env: Env, models: Models): Promise<Demo> {
+  // Look up the canary demo, if it exists.
   const read = () => env.DB.prepare('SELECT id, asks_used, files, pages, chars, company, contact, cleared_at FROM demos WHERE card_fingerprint = ? AND purged_at IS NULL')
     .bind(CANARY_FINGERPRINT).first<Demo>()
   let demo = await read()
+
+  // Create it the first time.
   if (demo === null) {
     // No key: no browser can ever sign in to it. No contact: no email names it.
     await env.DB.prepare("INSERT INTO demos (id, card_fingerprint, company) VALUES (?, ?, 'Canary')").bind(`canary${crypto.randomUUID().replace(/-/g, '').slice(0, 10)}`, CANARY_FINGERPRINT).run()
     demo = (await read()) as Demo
   }
+
+  // Give it its document if it has none yet.
   if (demo.files === 0) {
     // The page's own upload, without the mailer: the canary is not a prospect starting a demo.
     const response = await upload(new Request('https://demo/api/files', {
       method: 'POST',
       body: JSON.stringify({ name: CANARY_FILE, page_count: CANARY_PAGES.length, pages: CANARY_PAGES.map((text, i) => ({ page: i + 1, text })) }),
     }), { ...env, MAILER: undefined }, models, demo)
+
+    // Stop if the upload failed; otherwise read the demo back with its file.
     if (!response.ok) throw new Error(`canary: the document could not be uploaded (${response.status})`)
     demo = (await read()) as Demo
   }
+
   return demo
 }
 
 /** Whether one canary answer is right: the words a right answer holds, or a fallback where the document has no answer. */
 export function canaryPassed(test: CanaryCase, found: boolean, answer: string): boolean {
+  // A question with no answer in the document passes only by falling back.
   if (test.fallback === true) return !found
+
+  // Otherwise every expected word must be in the answer.
   const text = answer.toLowerCase()
   return found && test.must.every((word) => text.includes(word.toLowerCase()))
 }
@@ -182,11 +218,17 @@ export function canaryPassed(test: CanaryCase, found: boolean, answer: string): 
  * marked `via = 'canary'` so step 1 never counts it. A day with a failure is flagged.
  */
 export async function runCanary(env: Env, models: Models, options: Options, day: string, cases: CanaryCase[] = CANARY_CASES): Promise<{ passed: number; of: number } | null> {
+  // The canary can be switched off.
   if (env.CANARY_ENABLED === '0') return null
+
+  // Find or create the canary demo.
   let demo = await canaryDemo(env, models)
+
   // Its allowance is reset each run: the canary is not a visitor.
   await env.DB.prepare('UPDATE demos SET asks_used = 0 WHERE id = ?').bind(demo.id).run()
   demo = { ...demo, asks_used: 0 }
+
+  // Ask each question as the page would, and score the answer.
   let passed = 0
   for (const test of cases) {
     const started = Date.now()
@@ -195,13 +237,19 @@ export async function runCanary(env: Env, models: Models, options: Options, day:
       headers: { 'Content-Type': 'application/json', 'X-Demo-Via': 'canary', 'X-Demo-Keep': '0' },
       body: JSON.stringify({ question: test.question }),
     }), env, models, demo, options)
+
+    // Read the answer as plain text and check it.
     const body = (await response.json().catch(() => ({}))) as { answer?: string; items?: string[]; found?: boolean }
     const answer = asText(body.answer ?? '', body.items ?? [])
     const ok = response.ok && canaryPassed(test, body.found === true, answer)
     if (ok) passed++
+
+    // Keep the result for /admin, with the first 300 characters of the answer.
     await env.DB.prepare('INSERT OR REPLACE INTO canary_runs (day, name, passed, found, ms, answer) VALUES (?, ?, ?, ?, ?, ?)')
       .bind(day, test.name, ok ? 1 : 0, body.found === true ? 1 : 0, Date.now() - started, answer.slice(0, 300)).run()
   }
+
+  // Replace the day's canary flag, writing one only when a question failed.
   await env.DB.batch([
     env.DB.prepare("DELETE FROM pipeline_flags WHERE day = ? AND via = 'canary'").bind(day),
     ...(passed < cases.length
@@ -210,6 +258,7 @@ export async function runCanary(env: Env, models: Models, options: Options, day:
     // The canary's own questions are kept two days, for /admin to read; they are never anyone's.
     env.DB.prepare("DELETE FROM questions WHERE via = 'canary' AND asked_at < datetime('now', '-2 days')"),
   ])
+
   return { passed, of: cases.length }
 }
 
@@ -218,10 +267,15 @@ export async function runCanary(env: Env, models: Models, options: Options, day:
  * Each step on its own, so one failing does not stop the rest.
  */
 export async function dailyHealth(env: Env, models: Models, options: Options, now = new Date()): Promise<void> {
+  // Today and yesterday, as UTC dates.
   const today = now.toISOString().slice(0, 10)
   const yesterday = daysBefore(today, 1)
+
+  // Roll up and check every recent day not done yet, and always yesterday.
   try {
+    // The days already rolled up.
     const have = new Set((await env.DB.prepare('SELECT DISTINCT day FROM pipeline_days WHERE day >= ?').bind(daysBefore(today, CATCH_UP_DAYS)).all<{ day: string }>()).results.map((row) => row.day))
+
     // Oldest first, so each day's baseline already holds the days before it.
     for (let n = CATCH_UP_DAYS; n >= 1; n--) {
       const day = daysBefore(today, n)
@@ -232,6 +286,8 @@ export async function dailyHealth(env: Env, models: Models, options: Options, no
   } catch (error) {
     console.error('health: the roll-up or the drift check failed', error)
   }
+
+  // Run the canary on its own, so a failed roll-up does not stop it.
   try {
     await runCanary(env, models, options, yesterday)
   } catch (error) {
@@ -248,10 +304,13 @@ export async function dailyHealth(env: Env, models: Models, options: Options, no
 /** `/internal/admin/health`: the last 30 days, their flags, and the canary's last 14 days. */
 export async function healthRoute(env: Env, now = new Date()): Promise<Response> {
   const today = now.toISOString().slice(0, 10)
+
+  // The last 30 days of numbers and flags, and 14 days of canary runs, in one round trip.
   const [days, flags, canary] = await env.DB.batch([
     env.DB.prepare('SELECT * FROM pipeline_days WHERE day >= ? ORDER BY day DESC, via').bind(daysBefore(today, 30)),
     env.DB.prepare('SELECT * FROM pipeline_flags WHERE day >= ? ORDER BY day DESC, via, metric').bind(daysBefore(today, 30)),
     env.DB.prepare('SELECT day, name, passed, found, ms FROM canary_runs WHERE day >= ? ORDER BY day DESC, name').bind(daysBefore(today, 14)),
   ])
+
   return json(200, { days: days.results, flags: flags.results, canary: canary.results, canary_enabled: env.CANARY_ENABLED !== '0', cases: CANARY_CASES.length })
 }

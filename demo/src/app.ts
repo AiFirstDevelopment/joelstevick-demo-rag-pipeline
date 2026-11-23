@@ -68,6 +68,7 @@ export interface Demo {
   cleared_at: string | null
 }
 
+/** A JSON response with the given status, body and any extra headers. */
 export function json(status: number, body: unknown, extra: Record<string, string> = {}): Response {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json', ...extra } })
 }
@@ -76,6 +77,8 @@ export function json(status: number, body: unknown, extra: Record<string, string
 export function about(demo: Demo, question?: string): Record<string, string> {
   // The address is the part of "Name <address>" inside the angle brackets; with none, no email header is sent.
   const email = /<([^<>]+)>$/.exec(demo.contact ?? '')?.[1] ?? ''
+
+  // The demo's id always, then the email and the question's id only when there is one.
   return { 'X-Demo-Id': demo.id, ...(email ? { 'X-Demo-Email': email } : {}), ...(question ? { 'X-Question-Id': question } : {}) }
 }
 
@@ -94,19 +97,24 @@ const via = (request: Request) => {
 /** The hex SHA-256 of a text. Only a key's hash is stored, so the table alone signs no one in. */
 export async function sha256(text: string): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+
+  // The digest's bytes as two-digit hex, joined into one string.
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
 /** A random URL-safe string of `bytes` random bytes, for demo keys, ids and upload prefixes. */
 function randomKey(bytes: number): string {
   const raw = crypto.getRandomValues(new Uint8Array(bytes))
+
   // URL-safe base64 of random bytes, unpadded: a key that fits a cookie and a URL.
   return btoa(String.fromCharCode(...raw)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
 }
 
 /** The demo whose key the cookie holds, looked up by the key's hash and nothing else. */
 export async function signedIn(request: Request, env: Env): Promise<Demo | null> {
+  // The key the proxy forwarded from the visitor's cookie.
   const key = request.headers.get('X-Demo-Key') ?? ''
+
   // No key forwarded means signed out. Otherwise the key's hash names the demo, and a purged demo signs no one in.
   if (key === '') return null
   return env.DB.prepare('SELECT id, asks_used, files, pages, chars, company, contact, cleared_at FROM demos WHERE key_hash = ? AND purged_at IS NULL')
@@ -115,24 +123,32 @@ export async function signedIn(request: Request, env: Env): Promise<Demo | null>
 
 /** Creates the demo for a card, or finds the one it already has, and gives it a fresh key. */
 async function createDemo(request: Request, env: Env): Promise<Response> {
+  // The site's request body; a body that is not JSON reads as empty.
   const body = (await request.json().catch(() => ({}))) as Record<string, unknown>
+
   // The visitor's identity, sent by the site: now `email:` + a hash of their address, or an older demo's card fingerprint.
   // It is unique, so one demo per email; the column keeps its card-era name.
   const fingerprint = typeof body.fingerprint === 'string' ? body.fingerprint : ''
   if (fingerprint === '') return json(400, { error: 'no card fingerprint' })
+
   // Company, contact and engagement id are optional text, each cut to 300 characters.
   const text = (key: string) => (typeof body[key] === 'string' ? (body[key] as string).slice(0, 300) : null)
+
   // The key goes back to the site for the visitor's cookie; only its hash is stored.
   const key = randomKey(32)
   const hash = await sha256(key)
+
+  // The demo's row, under a fresh random id of lowercase letters and digits.
   await env.DB.prepare(
     // One demo per card: the same card again re-keys its existing demo instead of making another, unless that one was purged.
     `INSERT INTO demos (id, key_hash, engagement_id, card_fingerprint, company, contact) VALUES (?, ?, ?, ?, ?, ?)
      ON CONFLICT (card_fingerprint) DO UPDATE SET key_hash = excluded.key_hash WHERE demos.purged_at IS NULL`,
   ).bind(randomKey(12).toLowerCase().replace(/[^a-z0-9]/g, 'x'), hash, text('engagement_id'), fingerprint, text('company'), text('contact')).run()
+
   // The row is read back to learn whether this key landed: on a new demo, or as a re-key of the card's live one.
   const demo = await env.DB.prepare('SELECT id, key_hash, purged_at FROM demos WHERE card_fingerprint = ?')
     .bind(fingerprint).first<{ id: string; key_hash: string | null; purged_at: string | null }>()
+
   // The card's row is purged, or our key did not land on it: the card's demo has expired.
   if (demo === null || demo.purged_at !== null || demo.key_hash !== hash) return json(200, { expired: true })
   return json(200, { key, id: demo.id })
@@ -140,29 +156,38 @@ async function createDemo(request: Request, env: Env): Promise<Response> {
 
 /** Of the engagement ids given, those with a demo that is not purged. */
 async function whichDemos(request: Request, env: Env): Promise<Response> {
+  // The site's request body; a body that is not JSON reads as empty.
   const body = (await request.json().catch(() => ({}))) as { engagement_ids?: unknown }
+
   // Only strings, at most 100, so the IN list below stays within D1's limit on bound values.
   const ids = Array.isArray(body.engagement_ids) ? body.engagement_ids.filter((id): id is string => typeof id === 'string').slice(0, 100) : []
   if (ids.length === 0) return json(200, { engagement_ids: [] })
+
   // An engagement with several demos is listed once.
   const rows = await env.DB.prepare(
     `SELECT DISTINCT engagement_id FROM demos WHERE purged_at IS NULL AND engagement_id IN (${ids.map(() => '?').join(', ')})`,
   ).bind(...ids).all<{ engagement_id: string }>()
+
+  // Just the ids, as a plain list.
   return json(200, { engagement_ids: rows.results.map((row) => row.engagement_id) })
 }
 
 /** Gives the engagement's latest live demo a fresh key, as createDemo does for a returning card. */
 async function openDemo(request: Request, env: Env): Promise<Response> {
+  // The engagement whose demo to open, as the site sent it.
   const body = (await request.json().catch(() => ({}))) as { engagement_id?: unknown }
   const engagement = typeof body.engagement_id === 'string' ? body.engagement_id : ''
+
   // A fresh key replaces the old one, so any earlier cookie for this demo stops working.
   const key = randomKey(32)
+
   // The engagement's newest live demo is re-keyed in one statement; if it has none, no row changes.
   const demo = await env.DB.prepare(
     `UPDATE demos SET key_hash = ? WHERE id = (
        SELECT id FROM demos WHERE engagement_id = ? AND purged_at IS NULL ORDER BY created_at DESC, rowid DESC LIMIT 1
      ) RETURNING id`,
   ).bind(await sha256(key), engagement).first<{ id: string }>()
+
   // No engagement id given, or no live demo for it: nothing to open.
   if (engagement === '' || demo === null) return json(404, { error: 'no demo' })
   return json(200, { key, id: demo.id })
@@ -190,9 +215,12 @@ export interface Asked {
  * A prose answer is one paragraph with no such lines, so it comes back as it was shown.
  */
 export function fromText(text: string): { answer: string; items?: string[] } {
+  // List items are the lines that start with "- ", without that marker; everything else is the lead-in.
   const lines = text.split('\n')
   const items = lines.filter((line) => line.startsWith('- ')).map((line) => line.slice(2))
   const answer = lines.filter((line) => !line.startsWith('- ')).join('\n').trim()
+
+  // A prose answer comes back with no `items` field.
   return items.length > 0 ? { answer, items } : { answer }
 }
 
@@ -210,11 +238,14 @@ async function session(demo: Demo, env: Env): Promise<Response> {
   // The files in upload order, each with the page numbers that had no text.
   const files = await env.DB.prepare('SELECT name, pages, skipped FROM files WHERE demo_id = ? ORDER BY rowid')
     .bind(demo.id).all<{ name: string; pages: number; skipped: string }>()
+
   // The answers that passed the check, newest first, at most HISTORY of them.
   const asked = await env.DB.prepare('SELECT question, answer, sources FROM questions WHERE demo_id = ? AND checked = 1 AND answer IS NOT NULL ORDER BY asked_at DESC, rowid DESC LIMIT ?')
     .bind(demo.id, HISTORY).all<{ question: string; answer: string; sources: string }>()
+
   // Each recorded answer is split back into prose and list items, and its sources parsed from the stored JSON.
   const history: Asked[] = asked.results.map((row) => ({ question: row.question, ...fromText(row.answer), sources: JSON.parse(row.sources) as unknown[] }))
+
   // What the page draws: the files, the questions left, the limits, whether idleness cleared the
   // documents, and the earlier answers.
   return json(200, {
@@ -232,20 +263,29 @@ async function session(demo: Demo, env: Env): Promise<Response> {
  */
 export async function upload(request: Request, env: Env, models: Models, demo: Demo): Promise<Response> {
   // INGEST 1 · validate the upload: name, page count, each page's text
+  // The body the page sent; a body that is not JSON reads as null.
   const body = (await request.json().catch(() => null)) as { name?: unknown; page_count?: unknown; pages?: unknown } | null
+
   // The name is trimmed and capped at 200 characters; the page count is the PDF's own, as the browser read it.
   const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 200) : ''
   const pageCount = Number(body?.page_count)
+
+  // The pages as the browser sent them, or null if there are none.
   const raw = Array.isArray(body?.pages) ? (body.pages as { page?: unknown; text?: unknown }[]) : null
+
+  // Anything missing or malformed is refused before a row is written.
   if (name === '' || !Number.isInteger(pageCount) || pageCount < 1 || raw === null) return json(400, { error: 'That upload could not be read.' })
+
   // Only pages with text count; the empty ones (scans, blank pages) are listed as `skipped` so the visitor sees them.
   const pages = raw
     .filter((p) => Number.isInteger(p.page) && (p.page as number) >= 1 && (p.page as number) <= pageCount && typeof p.text === 'string')
     .map((p) => ({ page: p.page as number, text: (p.text as string).trim() }))
     .filter((p) => p.text.length > 0)
+
   // Every page from 1 to the page count that has no text is listed as skipped.
   const withText = new Set(pages.map((p) => p.page))
   const skipped = Array.from({ length: pageCount }, (_, i) => i + 1).filter((page) => !withText.has(page))
+
   // The total length of the text is what the demo's character limit counts.
   const chars = pages.reduce((sum, p) => sum + p.text.length, 0)
 
@@ -259,6 +299,7 @@ export async function upload(request: Request, env: Env, models: Models, demo: D
     if (String(error).includes('UNIQUE')) return json(409, { error: `${name} is already uploaded.` })
     throw error
   }
+
   // Undoes INGEST 2, for when INGEST 3 finds no room.
   const forget = () => env.DB.prepare('DELETE FROM files WHERE demo_id = ? AND name = ?').bind(demo.id, name).run()
 
@@ -268,24 +309,32 @@ export async function upload(request: Request, env: Env, models: Models, demo: D
     `UPDATE demos SET files = files + 1, pages = pages + ?1, chars = chars + ?2, uploads = uploads + 1, used_at = datetime('now'), cleared_at = NULL
      WHERE id = ?3 AND files < ?4 AND pages + ?1 <= ?5 AND chars + ?2 <= ?6 RETURNING uploads`,
   ).bind(pageCount, chars, demo.id, LIMITS.files, LIMITS.pages, LIMITS.chars).first<{ uploads: number }>()
+
   if (room === null) {
     // No room: the file row is deleted, then the demo is re-read to say which limit this file would pass.
     await forget()
     const now = (await env.DB.prepare('SELECT files, pages, chars FROM demos WHERE id = ?').bind(demo.id).first<Demo>()) ?? demo
+
+    // The message names the first limit this file would pass.
     const limit = now.files >= LIMITS.files
       ? `The demo takes at most ${LIMITS.files} PDFs.`
       : now.pages + pageCount > LIMITS.pages
         ? `The demo takes at most ${LIMITS.pages} pages in all, and ${name} would take it to ${now.pages + pageCount}.`
         : `The demo takes at most ${LIMITS.chars / 1000} KB of text in all, and ${name} would take it past that.`
+
     return json(413, { error: `${limit} ${name} was not added.` })
   }
 
   // INGEST 4 · chunk each page
   // A random prefix per upload, so two uploads at once never mint the same chunk id.
   const upload = randomKey(6).toLowerCase().replace(/[^a-z0-9]/g, 'x')
+
+  // Counts the chunks across the whole file, so each one knows its place.
   let n = 0
+
   // A chunk id is <demo>-<upload>-<n>: the demo's id, this upload's random prefix, the chunk's place in the file (`seq`, which widen walks).
   const chunks: Chunk[] = pages.flatMap((p) => chunkPage(p.text).map((text) => ({ id: `${demo.id}-${upload}-${n}`, file: name, page: p.page, text, seq: n++ })))
+
   // INGEST 5 · store the chunks (and archived pages) in D1
   // With consent, each page's text is archived beside its chunks; a re-upload of the file replaces it.
   const archive = keeps(request)
@@ -294,15 +343,19 @@ export async function upload(request: Request, env: Env, models: Models, demo: D
         ...pages.map((p) => env.DB.prepare('INSERT INTO archived_pages (demo_id, file, page, text) VALUES (?, ?, ?, ?)').bind(demo.id, name, p.page, p.text)),
       ]
     : []
+
   try {
+    // The archive first, then one insert per chunk.
     const statements = [
       ...archive,
       ...chunks.map((c) => env.DB.prepare('INSERT INTO chunks (id, demo_id, file, page, text, seq) VALUES (?, ?, ?, ?, ?, ?)').bind(c.id, demo.id, c.file, c.page, c.text, c.seq)),
     ]
+
     // In batches of 100 statements; a failure part-way, whichever batch, is undone below.
     for (let i = 0; i < statements.length; i += 100) await env.DB.batch(statements.slice(i, i + 100))
   } catch (error) {
     console.error('demo upload: the chunks could not be stored', error)
+
     // Undo everything of this upload: its archive, its chunks (by the upload's prefix), its file row and its room.
     await env.DB.batch([
       ...(archive.length > 0 ? [env.DB.prepare('DELETE FROM archived_pages WHERE demo_id = ? AND file = ?').bind(demo.id, name)] : []),
@@ -310,6 +363,7 @@ export async function upload(request: Request, env: Env, models: Models, demo: D
       env.DB.prepare('DELETE FROM files WHERE demo_id = ? AND name = ?').bind(demo.id, name),
       env.DB.prepare('UPDATE demos SET files = files - 1, pages = pages - ?, chars = chars - ?, uploads = uploads - 1 WHERE id = ?').bind(pageCount, chars, demo.id),
     ])
+
     return json(500, { error: `${name} could not be stored. Please try again.` })
   }
 
@@ -332,6 +386,7 @@ export async function upload(request: Request, env: Env, models: Models, demo: D
   // Once per demo, at its first upload ever: a prospect uploading again after their documents were
   // cleared, or after removing every file, is not a new demo.
   if (room.uploads === 1 && env.MAILER !== undefined) await tellJoel(env.MAILER, demo, name, pageCount)
+
   // The reply tells the page what was indexed; the X-Demo-* headers are for the site's own event record.
   return json(200, { name, pages: pageCount, skipped, chunks: chunks.length, chars }, about(demo))
 }
@@ -343,13 +398,19 @@ export async function upload(request: Request, env: Env, models: Models, demo: D
  * The questions already asked stay, and the count left is unchanged.
  */
 export async function remove(request: Request, env: Env, models: Models, demo: Demo): Promise<Response> {
+  // The name of the file to remove, trimmed and capped as on upload.
   const body = (await request.json().catch(() => null)) as { name?: unknown } | null
   const name = typeof body?.name === 'string' ? body.name.trim().slice(0, 200) : ''
+
   // The file's page and character counts are read first, so the same amounts can be given back to the demo.
   const file = name === '' ? null : await env.DB.prepare('SELECT pages, chars FROM files WHERE demo_id = ? AND name = ?').bind(demo.id, name).first<{ pages: number; chars: number }>()
+  // No such file in this demo: nothing to remove.
   if (file === null) return json(404, { error: `${name || 'That file'} is not in your demo.` })
+
   // The file's chunk ids, which are also the ids of its vectors in Vectorize.
   const ids = (await env.DB.prepare('SELECT id FROM chunks WHERE demo_id = ? AND file = ?').bind(demo.id, name).all<{ id: string }>()).results.map((row) => row.id)
+
+  // The vectors go first: if that fails, nothing else has been touched.
   if (models.vectors !== undefined && ids.length > 0) {
     try {
       // Deleted by id, 500 ids per call.
@@ -359,6 +420,7 @@ export async function remove(request: Request, env: Env, models: Models, demo: D
       return json(500, { error: `${name} could not be removed. Please try again.` })
     }
   }
+
   // The room is given back only while the file's row is still there, so two removes of one
   // file at once give it back once; the deletes follow in the same transaction.
   await env.DB.batch([
@@ -370,6 +432,8 @@ export async function remove(request: Request, env: Env, models: Models, demo: D
     env.DB.prepare('DELETE FROM archived_pages WHERE demo_id = ? AND file = ?').bind(demo.id, name),
     env.DB.prepare('DELETE FROM files WHERE demo_id = ? AND name = ?').bind(demo.id, name),
   ])
+
+  // The reply says which file went and how many questions are left.
   return json(200, { name, left: LIMITS.asks - demo.asks_used }, about(demo))
 }
 
@@ -380,6 +444,7 @@ export async function remove(request: Request, env: Env, models: Models, demo: D
 async function tellJoel(mailer: Fetcher, demo: Demo, file: string, pages: number): Promise<void> {
   // The contact is "Name <address>"; without one, the name is a placeholder and the address is Joel's own.
   const [, name = demo.contact ?? 'A demo visitor', email = 'joelstevick@gmail.com'] = /^(.*) <(.*)>$/.exec(demo.contact ?? '') ?? []
+
   try {
     // The body has the contact form's shape; budget 'rag' files it under the RAG pipeline and eval harness.
     await mailer.fetch('https://mailer/', {
@@ -416,6 +481,7 @@ export interface Options {
 export async function retrieval(question: string, env: Env, models: Models, demo: Demo): Promise<{ all: Chunk[]; retrieved: Chunk[] }> {
   // `all`: every chunk of this demo's documents, from D1, for keyword search.
   const all = (await env.DB.prepare('SELECT id, file, page, text, seq FROM chunks WHERE demo_id = ? ORDER BY rowid').bind(demo.id).all<Chunk>()).results
+
   // `near`: vector search. The question is embedded (Workers AI) and Vectorize returns the ids of
   // the chunks closest in meaning, best first. If either is missing or fails, `near` stays empty
   // and retrieval falls back to keyword search alone.
@@ -432,6 +498,7 @@ export async function retrieval(question: string, env: Env, models: Models, demo
       console.error('demo ask: the vector index did not answer; BM25 alone', error)
     }
   }
+
   // Merge keyword (BM25) and vector results into the candidate pool.
   return { all, retrieved: fuseKeywordAndVector(all, question, POOL, near) }
 }
@@ -475,7 +542,9 @@ export const STOPPED = "The answer stopped here: its next sentence didn't check 
  * before anything is streamed.
  */
 export async function ask(request: Request, env: Env, models: Models, demo: Demo, options: Options, ctx?: ExecutionContext): Promise<Response> {
+  // The page's request body; a body that is not JSON reads as empty.
   const body = (await request.json().catch(() => ({}))) as { question?: unknown }
+
   // ASK 1 · validate the question
   const question = typeof body.question === 'string' ? body.question.trim() : ''
   if (question === '' || question.length > MAX_QUESTION) return json(400, { error: `Please ask a question of up to ${MAX_QUESTION} characters.` })
@@ -485,10 +554,12 @@ export async function ask(request: Request, env: Env, models: Models, demo: Demo
   const reserved = await env.DB.prepare("UPDATE demos SET asks_used = asks_used + 1, used_at = datetime('now') WHERE id = ? AND asks_used < ? RETURNING asks_used")
     .bind(demo.id, LIMITS.asks).first<{ asks_used: number }>()
   if (reserved === null) return json(429, { error: "You've used your ten questions.", left: 0 })
+
   // The question's id is drawn now, before the row exists, because a streamed response sends its
   // headers (X-Question-Id among them) before the answer is known; the row is inserted at the end
   // under this same id.
   const id = randomKey(12)
+
   // Calling an async generator function runs none of its body: `events` is a handle on the ask,
   // and the ask only proceeds as something iterates it (`for await` below). Both renderings
   // iterate the same object, so there is one pipeline, never two.
@@ -503,6 +574,8 @@ export async function ask(request: Request, env: Env, models: Models, demo: Demo
     let status = 200
     let stopped: string | null = null
     let recorded = false
+
+    // Each event fills in the body; the last outcome wins.
     for await (const event of events) {
       if (event.type === 'stopped') stopped = event.reason
       else if (event.type === 'done') result = { ...strip(event), ...(stopped === null ? {} : { stopped }) }
@@ -510,6 +583,7 @@ export async function ask(request: Request, env: Env, models: Models, demo: Demo
       else if (event.type === 'error') (result = strip(event)), (status = 503)
       else if (event.type === 'recorded') recorded = event.ok
     }
+
     // X-Question-Id names the row to the site only when the row was written, as before.
     return json(status, result, about(demo, recorded ? id : undefined))
   }
@@ -522,11 +596,14 @@ export async function ask(request: Request, env: Env, models: Models, demo: Demo
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
   const writer = writable.getWriter()
   const encoder = new TextEncoder()
+
   const pump = (async () => {
     // `open` is whether the browser is still reading. Once a write fails (the visitor closed the
     // tab, or the connection dropped) nothing more is written, but the generator is still run to
     // its end below, so the ask is checked and recorded exactly as if they had stayed.
     let open = true
+
+    // Writes one event in the text/event-stream format.
     const send = async (type: string, data: Record<string, unknown>) => {
       try {
         await writer.write(encoder.encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`))
@@ -535,6 +612,7 @@ export async function ask(request: Request, env: Env, models: Models, demo: Demo
         open = false
       }
     }
+
     try {
       // The `recorded` sentinel is for the JSON rendering only; the browser never sees it.
       for await (const event of events) if (event.type !== 'recorded' && open) await send(event.type, strip(event))
@@ -544,14 +622,17 @@ export async function ask(request: Request, env: Env, models: Models, demo: Demo
       console.error('demo: the request failed', error)
       if (open) await send('error', { error: 'Something went wrong. Please try again in a minute.', left: LIMITS.asks - reserved.asks_used })
     }
+
     // Closing the writer ends the stream, which is how the page knows the ask is over.
     if (open) await writer.close().catch(() => {})
   })()
+
   // The pump outlives the `return` below. `waitUntil` tells the Workers runtime to keep the
   // request alive until it settles, so the insert at the end of the ask is never cut off when
   // the visitor leaves early; locally (tests, `wrangler dev`) there may be no ctx, and the
   // promise simply runs.
   ctx?.waitUntil(pump)
+
   // The X-Demo-* headers go out with the stream's headers, so the proxy can record its event
   // before the body has ended; `no-store` keeps any cache from holding a stream.
   return new Response(readable, { status: 200, headers: { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-store', ...about(demo, id) } })
@@ -584,6 +665,7 @@ async function* answering(
 ): AsyncGenerator<AskEvent | { type: 'recorded'; ok: boolean }> {
   // `started` times the whole ask for the record, and the first shown unit for `first_ms`.
   const started = Date.now()
+
   // Every outcome is recorded with the id drawn above; a failure to record never costs the visitor the answer.
   const record = async (row: { answer: string | null; sources?: unknown[]; checked?: boolean; fallback: string | null; first_ms?: number | null }) => {
     try {
@@ -601,14 +683,18 @@ async function* answering(
   // search (BM25) into the candidate pool. `retrieval` above says why it is split from `fuseKeywordAndVector`.
   yield { type: 'stage', stage: 'retrieving' }
   const { all, retrieved } = await retrieval(question, env, models, demo)
+
   // Documents that fit the answer whole are read whole, retrieved chunks first: then, and only
   // then, "not in your documents" is true.
   const whole = all.length <= ANSWER_CHUNKS
   // `includes` here is by object identity, not text: `fuseKeywordAndVector` returns the very Chunk objects
   // `all` holds, so the filter appends every chunk not already among the retrieved.
   const pool = whole ? [...retrieved, ...all.filter((chunk) => !retrieved.includes(chunk))] : retrieved
+
+  // The fallback line says only what is true for how much was read.
   const missing = whole ? NOT_FOUND : NOT_IN_PASSAGES
   // No candidate at all (no chunks, or none matched): the fallback is recorded as not_found, and the question still counts.
+
   if (pool.length === 0) {
     const ok = await record({ answer: null, fallback: 'not_found' })
     yield { type: 'fallback', answer: missing, found: false, left }
@@ -622,6 +708,7 @@ async function* answering(
   // Joel switched it on for the better answers (/blog/widening, evals/runs/*-widen-*).
   yield { type: 'stage', stage: 'reranking' }
   const chosen = await rerank(models.claude, question, pool)
+
   // When every chunk is already given there is nothing to widen into.
   const given = whole || options.widen === false ? chosen : widen(chosen, all)
 
@@ -633,19 +720,26 @@ async function* answering(
   // `units` (check.ts) cuts the text so far into the sentences and list lines that are complete,
   // and each one not yet dealt with is checked and either released, held, or ends the answer.
   yield { type: 'stage', stage: 'writing' }
+
   // Every unit released so far, with the chunks it cited: the sources and the recorded answer are built from these.
   const shown: { kind: UnitKind; text: string; cited: Chunk[] }[] = []
   // How many prose sentences and list items have been released: the caps (four, twelve) are checked against these.
+
   const counts: Counts = { prose: 0, items: 0 }
   // Milliseconds from the start of the ask to the first unit released: the number this design is for.
+
   let firstMs: number | null = null
   // The model's reply so far, markers and all.
+
   let text = ''
   // Why the answer ended early, once it has: a check's reason, or `trouble` when the model failed partway.
+
   let failed: 'empty' | 'uncited' | 'ungrounded' | 'overlong' | 'trouble' | null = null
+
   // Units the model wrote without ids ("No, it is a small loss."), waiting to be released with
   // the next unit that has them and checked against that unit's passages (Joel, 2026-10-30).
   const held: RawUnit[] = []
+
   // Checks and releases every complete unit in `text` that is not yet shown or held. A sync
   // generator rather than a function, because each released unit must be yielded to the caller
   // as a `unit` event in the middle of the work: `yield*` below hands each one up, and the
@@ -659,12 +753,15 @@ async function* answering(
         held.push(unit)
         continue
       }
+
       // The held units and this one are checked together as one group, against this one's ids.
       const checked = checkUnits([...held.splice(0), unit], given, question, counts)
+
       if (!checked.ok) {
         failed = checked.reason
         return false
       }
+
       // Each unit of the group is released in order; the first ever released sets `first_ms`.
       for (const one of checked.units) {
         shown.push({ ...one, cited: checked.cited })
@@ -674,6 +771,7 @@ async function* answering(
         yield { type: 'unit', kind: one.kind, text: one.text, sources: checked.cited.map((chunk) => chunk.id) }
       }
     }
+
     // The reply ended on a sentence with no ids: nothing came to vouch for it, so it is never shown.
     if (final && held.length > 0) {
       failed = 'uncited'
@@ -681,6 +779,8 @@ async function* answering(
     }
     return true
   }
+
+  // Read the model's reply as it streams, releasing units as they complete.
   try {
     // A labelled block, so a failed check can leave the loop *and* skip the final release: once a
     // unit has failed, nothing later in the reply is read or shown. Leaving the `for await` early
@@ -700,19 +800,24 @@ async function* answering(
     // depends on whether anything has been shown yet.
     if (shown.length === 0) {
       console.error('demo ask: the answer model failed; the question is given back', error)
+
       // The reservation at ASK 2 is undone: the failure costs the visitor no question.
       await env.DB.prepare('UPDATE demos SET asks_used = asks_used - 1 WHERE id = ? AND asks_used > 0').bind(demo.id).run()
+
       const ok = await record({ answer: null, fallback: 'trouble' })
       yield { type: 'error', error: TROUBLE, left: left + 1 }
       yield { type: 'recorded', ok }
       return
     }
+
     // An answer was already shown: the failure stops it there, and the question is not given back.
     console.error('demo ask: the answer model failed partway; the answer stops', error)
     failed = 'trouble'
   }
+
   // A reply that ends with no unit says nothing: the model's own "no passage answers it".
   if (shown.length === 0 && failed === null) failed = 'empty'
+
 
   if (shown.length === 0) {
     // Nothing was shown: the fallback, exactly as before streaming. The model's words (its
@@ -724,6 +829,7 @@ async function* answering(
     yield { type: 'recorded', ok }
     return
   }
+
   // Something was shown and then a later unit failed: the page is told to draw its stop line
   // under what it has; the answer is recorded as checked and `stopped`, and the question counts.
   if (failed !== null) yield { type: 'stopped', reason: failed }
@@ -734,12 +840,15 @@ async function* answering(
   const sources = cited.map((chunk) => ({
     id: chunk.id, file: chunk.file, page: chunk.page, ...(chunk.lastPage !== undefined && chunk.lastPage > chunk.page ? { last_page: chunk.lastPage } : {}), passage: chunk.text,
   }))
+
   // `items` goes to the page only when the answer is a list, so a prose answer's body is as before.
   // The recorded answer is one text either way (`asText`), since /admin and the golden-set
   // export read the `questions.answer` column as text.
   const prose = shown.filter((unit) => unit.kind !== 'item').map((unit) => unit.text).join(' ')
   const items = shown.filter((unit) => unit.kind === 'item').map((unit) => unit.text)
   const ok = await record({ answer: asText(prose, items), sources, checked: true, fallback: failed === null ? null : 'stopped', first_ms: firstMs })
+
+  // The ask ends with the whole answer, then whether its row was written.
   yield { type: 'done', answer: prose, ...(items.length > 0 ? { items } : {}), sources, found: true, left, first_ms: firstMs, ms: Date.now() - started }
   yield { type: 'recorded', ok }
 }
@@ -765,6 +874,8 @@ export async function purge(env: Env, models: Models): Promise<number> {
     `SELECT id FROM demos WHERE purged_at IS NULL AND COALESCE(used_at, created_at) <= datetime('now', ?)
      AND (files > 0 OR EXISTS (SELECT 1 FROM questions q WHERE q.demo_id = demos.id AND q.keep = 0))`,
   ).bind(`-${IDLE_DAYS} days`).all<{ id: string }>()
+
+  // How many demos were purged, for the scheduled job.
   let purged = 0
   // Each demo on its own, so one failure does not stop the rest.
   for (const { id } of old.results) {
@@ -774,9 +885,11 @@ export async function purge(env: Env, models: Models): Promise<number> {
       if (models.vectors !== undefined) {
         for (let i = 0; i < ids.length; i += 500) await models.vectors.deleteByIds(ids.slice(i, i + 500))
       }
+
       // Every app connected to the demo is disconnected first (demo/src/oauth.ts): if that fails, nothing below
       // has run, so the demo is still idle with documents and tomorrow's run tries again.
       await revokeGrants(env, id)
+
       // One transaction, and only while the demo is still idle: an upload since the SELECT
       // above keeps its chunks and files (searched by their words until it is idle again).
       const idle = `EXISTS (SELECT 1 FROM demos WHERE id = ?1 AND COALESCE(used_at, created_at) <= datetime('now', ?2))`
@@ -788,12 +901,15 @@ export async function purge(env: Env, models: Models): Promise<number> {
         // The room is reset; cleared_at is set only if there were files, so the page says its documents were deleted.
         env.DB.prepare(`UPDATE demos SET files = 0, pages = 0, chars = 0, cleared_at = CASE WHEN files > 0 THEN datetime('now') ELSE cleared_at END WHERE id = ?1 AND ${idle}`).bind(id, cutoff),
       ])
+
+      // Counted only once every delete has gone through.
       purged++
     } catch (error) {
       // The rows stay, so tomorrow's run still knows which vectors to delete.
       console.error(`demo purge: ${id} could not be purged; retried tomorrow`, error)
     }
   }
+
   return purged
 }
 
@@ -832,16 +948,20 @@ async function adminDemos(url: URL, env: Env): Promise<Response> {
      FROM demos d WHERE d.card_fingerprint IS NOT 'canary:v1' AND (?1 = '' OR lower(d.contact) = ?1 OR substr(lower(d.contact), -(length(?1) + 2)) = '<' || ?1 || '>')
      ORDER BY d.created_at DESC, d.rowid DESC LIMIT 500`,
   ).bind(email).all<DemoRow>()
+
   return json(200, { demos: rows.results })
 }
 
 /** One demo for /admin: its files with each page's text (live, else archived) and every question. */
 async function adminDemo(id: string, env: Env): Promise<Response> {
+  // The demo's row with its question count; an unknown id is a 404.
   const demo = await env.DB.prepare(
     `SELECT d.id, d.engagement_id, d.company, d.contact, d.created_at, d.used_at, d.cleared_at, d.purged_at, d.files, d.pages, d.asks_used,
        (SELECT COUNT(*) FROM questions q WHERE q.demo_id = d.id) AS questions FROM demos d WHERE d.id = ?`,
   ).bind(id).first<DemoRow>()
+
   if (demo === null) return json(404, { error: 'no demo' })
+
   // Its files, live chunks, archived pages and questions, read in one batch.
   const [files, chunks, archived, questions] = await env.DB.batch([
     env.DB.prepare('SELECT name, pages, skipped FROM files WHERE demo_id = ? ORDER BY rowid').bind(id),
@@ -849,7 +969,10 @@ async function adminDemo(id: string, env: Env): Promise<Response> {
     env.DB.prepare('SELECT file, page, text, archived_at FROM archived_pages WHERE demo_id = ? ORDER BY file, page').bind(id),
     env.DB.prepare('SELECT id, asked_at, question, answer, sources, checked, fallback, ms, keep, via FROM questions WHERE demo_id = ? ORDER BY asked_at, rowid').bind(id),
   ])
+
+  // One page of text: its number and what it says.
   type Page = { page: number; text: string }
+
   // Live text: each file's chunks regrouped by page, so a page reads as its chunks joined in order.
   const live = new Map<string, Map<number, string[]>>()
   for (const c of chunks.results as { file: string; page: number; text: string }[]) {
@@ -857,15 +980,21 @@ async function adminDemo(id: string, env: Env): Promise<Response> {
     pages.set(c.page, [...(pages.get(c.page) ?? []), c.text])
     live.set(c.file, pages)
   }
+
   // Archived text: each file's pages as uploaded, kept with consent after the chunks are purged.
   const kept = new Map<string, Page[]>()
   for (const a of archived.results as { file: string; page: number; text: string }[]) kept.set(a.file, [...(kept.get(a.file) ?? []), { page: a.page, text: a.text }])
+
   // Every file name, whether it is still uploaded or only archived.
   const names = [...new Set([...(files.results as { name: string }[]).map((f) => f.name), ...kept.keys()])]
+  // Each still-uploaded file's row, by name, for its page count.
   const listed = new Map((files.results as { name: string; pages: number; skipped: string }[]).map((f) => [f.name, f]))
+
+  // The demo, each file with its text, every question with its sources parsed, and the connected apps.
   return json(200, {
     demo,
     files: names.map((name) => {
+      // The file's live pages, if it is still in the index.
       const index = live.get(name)
       return {
         name,
@@ -894,37 +1023,51 @@ async function golden(url: URL, env: Env): Promise<Response> {
   const from = url.searchParams.get('from') || '0000'
   const to = url.searchParams.get('to') || '9999'
   const demoId = url.searchParams.get('demo') ?? ''
+
+  // The kept questions in range, oldest first, with each demo's company.
   const rows = await env.DB.prepare(
     `SELECT q.id, q.demo_id, d.company, q.asked_at, q.question, q.answer, q.fallback, q.checked, q.sources
      FROM questions q JOIN demos d ON d.id = q.demo_id
      WHERE q.keep = 1 AND q.asked_at >= ?1 AND q.asked_at < ?2 || 'z' AND (?3 = '' OR q.demo_id = ?3)
      ORDER BY q.asked_at, q.rowid`,
   ).bind(from, to, demoId).all<{ id: string; demo_id: string; company: string | null; asked_at: string; question: string; answer: string | null; fallback: string | null; checked: number; sources: string }>()
+
+  // One JSON line per question.
   const lines: string[] = []
   for (const q of rows.results) {
     // Each source keeps only its file and pages; the text comes from the archived pages read below.
     const sources = (JSON.parse(q.sources) as { file: string; page: number; last_page?: number }[]).map((s) => ({ file: s.file, page: s.page, ...(s.last_page ? { last_page: s.last_page } : {}) }))
+
     const wanted = new Set<string>()
     // The cited pages and one either side, as (file, page) pairs; keyed by their JSON, since a Set compares arrays by identity.
     for (const s of sources) for (let p = s.page - 1; p <= (s.last_page ?? s.page) + 1; p++) if (p >= 1) wanted.add(JSON.stringify([s.file, p]))
+
     // One query per question (D1 caps the queries a request may make), at most 45 pages (90 bound values) each.
     const pairs = [...wanted].slice(0, 45).map((key) => JSON.parse(key) as [string, number])
     const pages: { file: string; page: number; text: string }[] = pairs.length === 0 ? [] : (await env.DB.prepare(
       `SELECT file, page, text FROM archived_pages WHERE demo_id = ? AND (file, page) IN (VALUES ${pairs.map(() => '(?, ?)').join(', ')})`,
     ).bind(q.demo_id, ...pairs.flat()).all<{ file: string; page: number; text: string }>()).results
+
     // In file and page order, so the pages read in sequence.
     pages.sort((a, b) => a.file.localeCompare(b.file) || a.page - b.page)
+
+    // The line: the question, the model's unchecked answer, its sources and the archived pages.
     lines.push(JSON.stringify({
       demo: q.demo_id, company: q.company, asked_at: q.asked_at, question: q.question,
       model_answer_unverified: q.answer, fallback: q.fallback, checked: q.checked === 1, sources, pages,
     }))
   }
+
+  // Each line ends with a newline, as JSONL expects.
   return new Response(lines.map((line) => `${line}\n`).join(''), { headers: { 'Content-Type': 'application/x-ndjson; charset=utf-8' } })
 }
 
+/** Sends each request to its handler: the site's own calls, the MCP server, then a visitor's routes. */
 async function route(request: Request, env: Env, models: Models, options: Options, ctx?: ExecutionContext): Promise<Response> {
+  // The path decides the route.
   const url = new URL(request.url)
   const { pathname } = url
+
   // The site's own calls first: creating and opening demos, and the /admin reads. The proxy never
   // forwards /internal paths, so these need no key.
   if (pathname === '/internal/demos' && request.method === 'POST') return createDemo(request, env)
@@ -934,19 +1077,25 @@ async function route(request: Request, env: Env, models: Models, options: Option
   if (request.method === 'GET' && pathname === '/internal/admin/health') return healthRoute(env)
   if (pathname === '/internal/demos/which' && request.method === 'POST') return whichDemos(request, env)
   if (pathname === '/internal/demos/open' && request.method === 'POST') return openDemo(request, env)
+
   // The MCP server and its OAuth endpoints (README.md, "The MCP server"): the site forwards these with its own URL.
   if (MCP_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) return oauthRoute(request, env, models, options, ctx)
+
   // Everything below is a visitor's route: the key the proxy forwards must name a live demo.
   const demo = await signedIn(request, env)
   if (demo === null) {
     // `expired` tells the page that a key it has is no longer good (purged, or re-keyed), as against no key at all.
     return json(401, { error: 'signed out', expired: (request.headers.get('X-Demo-Key') ?? '') !== '' })
   }
+
+  // The visitor's own routes: the page's state, adding and removing files, asking, and connected apps.
   if (pathname === '/api/session' && request.method === 'GET') return session(demo, env)
   if (pathname === '/api/files' && request.method === 'POST') return upload(request, env, models, demo)
   if (pathname === '/api/files' && request.method === 'DELETE') return remove(request, env, models, demo)
   if (pathname === '/api/ask' && request.method === 'POST') return ask(request, env, models, demo, options, ctx)
   if (pathname === '/api/grants' && (request.method === 'GET' || request.method === 'DELETE')) return grantsRoute(request, env, demo)
+
+  // Any other path or method.
   return json(404, { error: 'not found' })
 }
 
@@ -962,6 +1111,7 @@ export function createApp(modelsFor: (env: Env) => Models, options: Options = {}
         return json(500, { error: 'Something went wrong. Please try again in a minute.' })
       }
     },
+
     async scheduled(_controller: ScheduledController, env: Env): Promise<void> {
       // The daily job: yesterday's health first (README.md, "Watching the pipeline"), while every question of it is
       // still there; then idle demos' documents, then whatever has passed KEEP_MONTHS.

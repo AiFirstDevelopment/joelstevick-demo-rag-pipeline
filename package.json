@@ -5,7 +5,7 @@
   "license": "MIT",
   "description": "The RAG pipeline behind joelstevick.com/demo: the page, its Pages Functions, the demo Worker and its eval harness.",
   "scripts": {
-    "typecheck": "tsc --noEmit -p demo/tsconfig.json",
+    "typecheck": "tsc --noEmit -p demo/tsconfig.json && tsc --noEmit -p tsconfig.json",
     "test": "vitest run --config demo/vitest.config.ts",
     "eval": "node evals/run.mjs"
   },
