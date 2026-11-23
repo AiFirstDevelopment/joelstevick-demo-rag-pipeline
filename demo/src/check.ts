@@ -55,22 +55,27 @@ const LARGER_WORDS: Record<string, number> = {
   twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90,
   hundred: 100, thousand: 1000,
 }
+
 /** One to nineteen: the words a compound adds as they are ("twenty-five" is 20 + 5). */
 const UNITS: Record<string, number> = Object.fromEntries(
   [...NUMBER_WORDS.slice(1), 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen']
     .map((word, index) => [word, index + 1]),
 )
+
 /** The tens a compound adds before its unit. */
 const TENS: Record<string, number> = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 }
 
 /** Spelled compounds as the numbers they are: "five hundred" is 500, "twenty-five" 25. */
 function compounds(text: string): number[] {
+  // The value of each run of number words, in the order they appear.
   const out: number[] = []
+
   // total: what the run reached at its last "thousand"; chunk: the part since then, still open to "hundred";
   // open: whether a run of number words is under way.
   let total = 0
   let chunk = 0
   let open = false
+
   // A run of number words has ended: emit what it added up to, and start fresh.
   const close = () => {
     if (open) out.push(total + chunk)
@@ -78,6 +83,7 @@ function compounds(text: string): number[] {
     chunk = 0
     open = false
   }
+
   // Units and tens add to the run, hundred and thousand scale it, 'and' joins it, any other word ends it.
   for (const word of text.toLowerCase().match(/[a-z]+/g) ?? []) {
     if (UNITS[word] !== undefined) chunk += UNITS[word]
@@ -92,8 +98,10 @@ function compounds(text: string): number[] {
     // Reached only by a number word: the run is under way.
     open = true
   }
+
   // The text may end on a number word, so the last run is emitted too.
   close()
+
   return out
 }
 
@@ -105,19 +113,24 @@ function compounds(text: string): number[] {
 export function figuresIn(text: string): Set<string> {
   // Thousands separators out ("4,200" is 4200) and a leading zero off ("0.5" is .5), so one figure is one token however it was written.
   const normalised = text.replace(/(\d),(?=\d{3}(?!\d))/g, '$1').replace(/\b0(\.\d)/g, '$1')
+
   // Every run of digits is a figure, as written.
   const found = new Set<string>(normalised.match(/\d+/g) ?? [])
+
   // Spelled numbers up to twelve, as whole words, except "one" (see above).
   const lower = normalised.toLowerCase()
   NUMBER_WORDS.forEach((word, value) => {
     if (value !== 1 && new RegExp(`\\b${word}\\b`).test(lower)) found.add(String(value))
   })
+
   // The larger spelled numbers, each counted on its own.
   for (const word of lower.match(/[a-z]+/g) ?? []) {
     if (LARGER_WORDS[word] !== undefined) found.add(String(LARGER_WORDS[word]))
   }
+
   // Spelled compounds as their value ("five hundred" adds 500); one that comes to 1 is the pronoun again, so skipped.
   for (const value of compounds(normalised)) if (value !== 1) found.add(String(value))
+
   return found
 }
 
@@ -158,31 +171,40 @@ export type Checked =
  * said, every source is a given chunk, every figure is grounded, and the length is within bounds.
  */
 export function checkAnswer(reply: Reply, given: Chunk[], question: string): Checked {
+  // The prose part of the reply, without stray spaces at either end.
   const answer = reply.answer.trim()
+
   // A list's entries, trimmed; an empty entry is dropped rather than shown as an empty bullet.
   const items = (reply.items ?? []).map((item) => item.trim()).filter((item) => item.length > 0)
+
   // `reply.sources` are chunk ids, copied by the model from the `[id]` label each given passage
   // carried. Each is matched to a given chunk by id, exactly; one that matches none (misspelt,
   // invented, or from outside the context) fails the whole answer as `uncited`.
   const ids = [...new Set(reply.sources)]
+
   // No answer (neither prose nor a list), or one citing nothing: the model's own "no passage
   // answers it", shown as the fallback.
   if ((answer.length === 0 && items.length === 0) || ids.length === 0) return { ok: false, reason: 'empty' }
+
   // Each id matched to its given chunk, or null when no given chunk has that id.
   const cited = ids.map((id) => given.find((chunk) => chunk.id === id) ?? null)
   if (cited.some((chunk) => chunk === null)) return { ok: false, reason: 'uncited' }
+
   // No null is left past the check above: these are the cited chunks, in the order they were cited.
   const sources = cited as Chunk[]
+
   // Figures, by contrast, are compared as text on purpose: a number in the answer must appear,
   // written the same way, in a cited passage or in the question. Every list item is checked the
   // same way as the lead-in: a figure that appears only in a bullet is still a figure shown.
   const grounded = new Set<string>()
   for (const chunk of sources) for (const figure of figuresIn(chunk.text)) grounded.add(figure)
   for (const figure of figuresIn(question)) grounded.add(figure)
+
   // The first figure stated by no cited passage and not by the question refuses the whole answer.
   for (const text of [answer, ...items]) {
     for (const figure of figuresIn(text)) if (!grounded.has(figure)) return { ok: false, reason: 'ungrounded' }
   }
+
   // Length, refused rather than trimmed: a trimmed answer could drop the sentence or the item a
   // citation was for.
   if (items.length === 0) {
@@ -197,6 +219,7 @@ export function checkAnswer(reply: Reply, given: Chunk[], question: string): Che
     if (items.length > MAX_ITEMS) return { ok: false, reason: 'overlong' }
     if ([answer, ...items].some((text) => sentences(text) > MAX_ITEM_SENTENCES)) return { ok: false, reason: 'overlong' }
   }
+
   return { ok: true, answer, items, cited: sources }
 }
 
@@ -244,12 +267,17 @@ const PROSE_END = /(?<=[.!?])(?<!(?:^|[:;,]\s*|\n)\d{1,3}\.)((?:\s*\[[^\]\n]*\])
  */
 function proseUnits(text: string): { done: string[]; rest: string } {
   const done: string[] = []
+  // Where the sentence being read began.
   let start = 0
+
+  // Cut the text at each sentence end, keeping its markers with it.
   for (const match of text.matchAll(PROSE_END)) {
     const end = (match.index ?? 0) + match[1].length
     done.push(text.slice(start, end))
     start = (match.index ?? 0) + match[0].length
   }
+
+  // Whatever follows the last complete sentence is still being written.
   return { done, rest: text.slice(start) }
 }
 
@@ -267,18 +295,24 @@ function proseUnits(text: string): { done: string[]; rest: string } {
 export function units(text: string, final: boolean): RawUnit[] {
   const out: RawUnit[] = []
   // Lines, because a list item is one line: the model writes each as "- ..." on a line of its own.
+
   const lines = text.split('\n')
   // The last line is still being written unless the stream has ended: it is held back and looked at separately below.
+
   const open = final ? null : lines.pop() ?? ''
   // Prose gathered from the completed lines, until a list line or the end completes it.
+
   let prose = ''
   // A list line completes the prose before it: its sentences, and the rest as the list's lead-in.
+
   const lead = () => {
     const { done, rest } = proseUnits(prose)
     for (const raw of done) out.push({ kind: 'sentence', raw })
     if (rest.trim().length > 0) out.push({ kind: 'lead', raw: rest })
     prose = ''
   }
+
+  // Sort the completed lines into list items and prose.
   for (const line of lines) {
     if (line.startsWith('- ')) {
       // A completed list line is a whole item; the prose before it, if any, is the list's lead-in.
@@ -289,12 +323,14 @@ export function units(text: string, final: boolean): RawUnit[] {
       prose += (prose.length > 0 ? '\n' : '') + line
     }
   }
+
   // The line being written: once it starts "- " it is a list line, and the prose before it is complete;
   // a lone "-" waits to see which it is.
   if (open !== null) {
     if (open.startsWith('- ')) lead()
     else if (open !== '-' && open.trim().length > 0) prose += (prose.length > 0 ? '\n' : '') + open
   }
+
   if (final) {
     // The end of the stream completes whatever prose is left: a last sentence with no full stop, or a lead-in with no list.
     const { done, rest } = proseUnits(prose)
@@ -304,6 +340,7 @@ export function units(text: string, final: boolean): RawUnit[] {
     // Only the sentences already followed by another are complete.
     for (const raw of proseUnits(prose).done) out.push({ kind: 'sentence', raw })
   }
+
   return out
 }
 
@@ -348,20 +385,27 @@ export function checkUnits(group: RawUnit[], given: Chunk[], question: string, c
   // The texts as they would be shown, markers out. A unit that was only markers says nothing.
   const texts = group.map((unit) => unmarked(unit.raw))
   if (texts.some((text) => text.length === 0)) return { ok: false, reason: 'empty' }
+
   // Every id the group cites, matched to a given chunk by id, exactly, as `checkAnswer` matches
   // them: one that matches none (misspelt, invented, or from outside the context) fails the group.
   const ids = [...new Set(group.flatMap((unit) => idsIn(unit.raw)))]
   if (ids.length === 0) return { ok: false, reason: 'uncited' }
+
+  // Each id matched to its given chunk, or null when no given chunk has that id.
   const cited = ids.map((id) => given.find((chunk) => chunk.id === id) ?? null)
   if (cited.some((chunk) => chunk === null)) return { ok: false, reason: 'uncited' }
+  // No null is left past the check above: these are the cited chunks, in order.
   const sources = cited as Chunk[]
+
   // Figures are compared as text: a number in any unit of the group must appear, written the same
   // way, in a passage the group cites or in the question. A held sentence is covered by the
   // passages of the sentence it is released with, which is what makes holding it safe.
   const grounded = new Set<string>()
   for (const chunk of sources) for (const figure of figuresIn(chunk.text)) grounded.add(figure)
   for (const figure of figuresIn(question)) grounded.add(figure)
+  // The first figure found in neither refuses the whole group.
   for (const text of texts) for (const figure of figuresIn(text)) if (!grounded.has(figure)) return { ok: false, reason: 'ungrounded' }
+
   // The caps, counted on from what was released before this group: the fifth prose sentence or
   // the thirteenth item fails, as does an item longer than MAX_ITEM_SENTENCES. Refused rather
   // than trimmed, as before: the answer stops at four or twelve and says so.
@@ -373,5 +417,6 @@ export function checkUnits(group: RawUnit[], given: Chunk[], question: string, c
       return { ok: false, reason: 'overlong' }
     }
   }
+
   return { ok: true, units: group.map((unit, i) => ({ kind: unit.kind, text: texts[i] })), cited: sources }
 }

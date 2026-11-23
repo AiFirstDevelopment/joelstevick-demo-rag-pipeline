@@ -9,6 +9,9 @@ import { forwardToDemo, WELL_KNOWN, type DemoMcpEnv } from "./_lib/demo-mcp";
 
 export const onRequest: PagesFunction<DemoMcpEnv> = async ({ request, next, env }) => {
   const url = new URL(request.url);
+
+  // A discovery document goes to the demo Worker; anything else carries on as normal.
   if (WELL_KNOWN.some((prefix) => url.pathname === prefix || url.pathname.startsWith(`${prefix}/`))) return forwardToDemo(request, env);
+
   return next();
 };

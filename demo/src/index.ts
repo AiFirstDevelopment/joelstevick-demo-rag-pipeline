@@ -7,6 +7,7 @@
 import { createApp } from './app'
 import { claudeFor, claudeStreamFor, embedFor, vectorsFor } from './models'
 
+// Each request gets its models built from the Worker's bindings and secrets.
 export default createApp((env) => ({
   claude: claudeFor(env.ANTHROPIC_API_KEY),
   stream: claudeStreamFor(env.ANTHROPIC_API_KEY),

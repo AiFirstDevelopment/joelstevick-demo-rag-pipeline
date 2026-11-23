@@ -25,8 +25,10 @@ export const WIDEN_CHARS = 10_800
  * never anyone's neighbour.
  */
 export function widen(given: Chunk[], all: Chunk[]): Chunk[] {
+  // Every chunk of the demo, looked up by its file and its place in that file.
   const bySeq = new Map<string, Chunk>()
   for (const chunk of all) if (chunk.seq != null) bySeq.set(`${chunk.file}\u0000${chunk.seq}`, chunk)
+  // The chunk at a given place in a file, if there is one.
   const at = (file: string, seq: number) => bySeq.get(`${file}\u0000${seq}`)
 
   // Every chunk that goes in: the given ones always, then their neighbours under the budget.
@@ -44,6 +46,8 @@ export function widen(given: Chunk[], all: Chunk[]): Chunk[] {
       const neighbour = at(chunk.file, seq)
       // Skipped if there is none (the file's edge), it is already in, or it would overspend the budget.
       if (neighbour === undefined || taken.has(neighbour) || added + neighbour.text.length > WIDEN_CHARS) continue
+
+      // Taken: it counts against the budget.
       taken.add(neighbour)
       added += neighbour.text.length
     }
@@ -51,23 +55,32 @@ export function widen(given: Chunk[], all: Chunk[]): Chunk[] {
 
   // Each given chunk's run of taken neighbours, the first time one of its chunks is reached.
   const placed = new Set<Chunk>()
+  // The passages that go back to the caller, in the reranker's order.
   const passages: Chunk[] = []
+
   for (const chunk of given) {
     // Already inside an earlier chunk's run: it went out there, once.
     if (placed.has(chunk)) continue
+
+    // The run starts as the chunk on its own.
     const run = [chunk]
+
     if (chunk.seq != null) {
       // Walk outward each way while the next chunk was taken. A run grows past a chunk's own two
       // neighbours only where given chunks lie close together in the file.
       for (let seq = chunk.seq - 1, c = at(chunk.file, seq); c !== undefined && taken.has(c); c = at(chunk.file, --seq)) run.unshift(c)
       for (let seq = chunk.seq + 1, c = at(chunk.file, seq); c !== undefined && taken.has(c); c = at(chunk.file, ++seq)) run.push(c)
     }
+
+    // Every chunk in the run counts as sent, so none goes out twice.
     for (const c of run) placed.add(c)
+
     // Nothing was added around it: the chunk goes as it is.
     if (run.length === 1) {
       passages.push(chunk)
       continue
     }
+
     // A run is one passage, under its given chunk's id, spanning the run's pages, the texts joined.
     const pages = run.map((c) => c.page)
     passages.push({
@@ -78,5 +91,6 @@ export function widen(given: Chunk[], all: Chunk[]): Chunk[] {
       text: run.map((c) => c.text).join('\n'),
     })
   }
+
   return passages
 }
